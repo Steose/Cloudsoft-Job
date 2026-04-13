@@ -2,7 +2,25 @@
     ViewData["Title"] = "Home Page";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome to CloudSoft Job Portal</h1>
-    <p>Find your next career opportunity and discover top notch companies. Browse open positions and apply today.</p>
+
+<div class="container-fluid px-0">
+    <!-- Hero Section -->
+    <div class="hero-gradient text-white py-5">
+        <div class="container py-5">
+            <div class="row align-items-center g-5">
+                <div class="col-lg-6 mx-auto text-center">
+                    <h1 class="display-3 fw-bold mb-3">Welcome to CloudSoft Job Portal</h1>
+                    <p class="lead mb-4">
+                        Find your next career opportunity and discover top notch companies. Browse open positions and apply today.
+                    </p>
+                    <div class="d-grid gap-2 d-md-flex justify-content-center">
+                        <a asp-controller="Jobs" asp-action="JobPosting"
+                           class="btn btn-light btn-lg px-4 shadow">
+                            <i class="fas fa-envelope me-2"></i>Post a Job
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>

@@ -1,0 +1,81 @@
+@model CloudSoft.Job.Domain.Entities.JobPosting
+
+@{
+    ViewData["Title"] = "Post a Job";
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="card-title h4 mb-0">Post a Job</h2>
+                </div>
+                <div class="card-body">
+                    <!-- Display validation summary for model-level errors -->
+                    @if (!ViewData.ModelState.IsValid)
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            @Html.ValidationSummary(false, null, new { @class = "text-danger" })
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"><i
+                                class="fas fa-times"></i></button>
+                            </div>
+                        }
+
+                        <!-- Display message from the TempData sent by the controller -->
+                        @if (TempData["SuccessMessage"] != null)
+                        {
+                            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                                @TempData["SuccessMessage"]
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"><i
+                                    class="fas fa-times"></i></button>
+                                </div>
+                            }
+
+                            <form asp-action="JobPosting" method="post">
+                                <div class="mb-3">
+                                    <label asp-for="Title" class="form-label"></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                        <input asp-for="Title" class="form-control" placeholder="Enter Job Title" />
+                                    </div>
+                                    <span asp-validation-for="Title" class="text-danger small"></span>
+                                </div>
+                                <div class="mb-3">
+                                    <label asp-for="Description" class="form-label"></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                        <input asp-for="Description" class="form-control" placeholder="Enter Job Description" />
+                                    </div>
+                                    <span asp-validation-for="Description" class="text-danger small"></span>
+                                </div>
+                                <div class="mb-3">
+
+                                    <label asp-for="Location" class="form-label"></label>
+
+                                    <div class="input-group">
+
+                                        <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+
+                                        <input asp-for="Location" class="form-control" placeholder="Enter Job Location" />
+
+                                    </div>
+
+                                    <span asp-validation-for="Location" class="text-danger small"></span>
+
+                                </div>
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-paper-plane me-2"></i>Post Job
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @section Scripts {
+            <partial name="_ValidationScriptsPartial" />
+        }
