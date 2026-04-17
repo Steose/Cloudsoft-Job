@@ -1,4 +1,4 @@
-@model CloudsoftJob.Core.Entities.JobPosting
+@model CloudsoftJob.Core.Models.JobPosting
 
 @{
     ViewData["Title"] = "Post a Job";
@@ -32,9 +32,10 @@
                                 </div>
                             }
 
-                            <form asp-action="JobPosting" method="post">
+                            <form asp-action="Create" method="post">
                                 @Html.HiddenFor(model => model.Id)
                                 @Html.HiddenFor(model => model.CreatedAtUtc)
+                                @Html.HiddenFor(model => model.Deadline)
 
                                 <div class="mb-3">
                                     <label asp-for="Title" class="form-label"></label>
@@ -85,4 +86,3 @@
         @section Scripts {
             <partial name="_ValidationScriptsPartial" />
         }
-

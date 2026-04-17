@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 
 // Defines the namespace this entity belongs to in the domain project.
-namespace CloudsoftJob.Core.Entities;
+namespace CloudsoftJob.Core.Models;
 
 // Represents a job posting in the CloudSoft job domain.
 public class JobPosting
@@ -23,6 +23,9 @@ public class JobPosting
 
     // UTC timestamp for when the job posting is created; defaults to the current UTC time.
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+
+    // Final date for applications; defaults to three weeks from today.
+    public DateTime Deadline { get; set; } = DateTime.UtcNow.Date.AddDays(21);
 
     // Shows whether the job posting is currently active; defaults to active.
     public bool IsActive { get; set; } = true;

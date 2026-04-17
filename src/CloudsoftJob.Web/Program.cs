@@ -1,7 +1,11 @@
+using CloudsoftJob.Core.Services;
+using CloudsoftJob.Core.Services.Interfaces;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+builder.Services.AddSingleton<IJobPostingService, JobPostingService>();
 
 var app = builder.Build();
 
