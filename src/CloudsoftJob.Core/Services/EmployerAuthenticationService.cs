@@ -1,38 +1,30 @@
 using CloudsoftJob.Core.Models;
+using CloudsoftJob.Core.Repositories.Interfaces;
 using CloudsoftJob.Core.Services.Interfaces;
 
 namespace CloudsoftJob.Core.Services;
 
 public class EmployerAuthenticationService : IEmployerAuthenticationService
 {
-    private const string EmployerEmail = "employer@cloudsoft.com";
-    private const string EmployerPassword = "Password123!";
-    private readonly List<EmployerAccount> _employers =
-    [
-        new(
-            new EmployerUser
-            {
-                Id = "cloudsoft-employer",
-                Email = EmployerEmail,
-                DisplayName = "CloudSoft Employer"
-            },
-            EmployerPassword)
-    ];
-    private readonly object _syncRoot = new();
+    private readonly IEmployerRepository _employerRepository;
 
-    public EmployerUser? ValidateCredentials(string email, string password)
+    public EmployerAuthenticationService(IEmployerRepository employerRepository)
     {
-        lock (_syncRoot)
-        {
-            var employer = _employers.FirstOrDefault(account =>
-                string.Equals(account.User.Email, email, StringComparison.OrdinalIgnoreCase) &&
-                account.Password == password);
-
-            return employer?.User;
-        }
+        _employerRepository = employerRepository;
     }
 
-    public EmployerUser? Register(string email, string password, string displayName)
+    public async Task<EmployerUser?> ValidateCredentialsAsync(string email, string password)
+    {
+        var employerAccount = await _employerRepository.GetByEmailAsync(email);
+        if (employerAccount == null || employerAccount.Password != password)
+        {
+            return null;
+        }
+
+        return employerAccount.User;
+    }
+
+    public async Task<EmployerUser?> RegisterAsync(string email, string password, string displayName)
     {
         if (string.IsNullOrWhiteSpace(email) ||
             string.IsNullOrWhiteSpace(password) ||
@@ -41,44 +33,24 @@ public class EmployerAuthenticationService : IEmployerAuthenticationService
             return null;
         }
 
-        lock (_syncRoot)
+        var employerAccount = new EmployerAccount
         {
-            if (EmailExistsCore(email))
-            {
-                return null;
-            }
-
-            var employer = new EmployerUser
+            User = new EmployerUser
             {
                 Id = Guid.NewGuid().ToString(),
                 Email = email.Trim(),
                 DisplayName = displayName.Trim()
-            };
+            },
+            Password = password
+        };
 
-            _employers.Add(new EmployerAccount(employer, password));
+        var registeredEmployerAccount = await _employerRepository.AddAsync(employerAccount);
 
-            return employer;
-        }
+        return registeredEmployerAccount?.User;
     }
 
-    public bool EmailExists(string email)
+    public Task<bool> EmailExistsAsync(string email)
     {
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            return false;
-        }
-
-        lock (_syncRoot)
-        {
-            return EmailExistsCore(email);
-        }
+        return _employerRepository.EmailExistsAsync(email);
     }
-
-    private bool EmailExistsCore(string email)
-    {
-        return _employers.Any(account =>
-            string.Equals(account.User.Email, email, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private sealed record EmployerAccount(EmployerUser User, string Password);
 }

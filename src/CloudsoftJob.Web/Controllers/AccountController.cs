@@ -38,7 +38,7 @@ public class AccountController : Controller
             return View(model);
         }
 
-        var employer = _employerAuthenticationService.ValidateCredentials(model.Email, model.Password);
+        var employer = await _employerAuthenticationService.ValidateCredentialsAsync(model.Email, model.Password);
         if (employer == null)
         {
             ModelState.AddModelError(string.Empty, "Invalid employer login.");
@@ -70,13 +70,13 @@ public class AccountController : Controller
             return View(model);
         }
 
-        if (_employerAuthenticationService.EmailExists(model.Email))
+        if (await _employerAuthenticationService.EmailExistsAsync(model.Email))
         {
             ModelState.AddModelError(nameof(model.Email), "An employer account already exists for this email.");
             return View(model);
         }
 
-        var employer = _employerAuthenticationService.Register(model.Email, model.Password, model.DisplayName);
+        var employer = await _employerAuthenticationService.RegisterAsync(model.Email, model.Password, model.DisplayName);
         if (employer == null)
         {
             ModelState.AddModelError(string.Empty, "Unable to register employer account.");

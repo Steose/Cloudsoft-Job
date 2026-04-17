@@ -1,8 +1,8 @@
 using CloudsoftJob.Core.Models;
 
-namespace CloudsoftJob.Core.Services.Interfaces;
+namespace CloudsoftJob.Core.Repositories.Interfaces;
 
-public interface IJobPostingService
+public interface IJobPostingRepository
 {
     Task<IReadOnlyCollection<JobPosting>> GetAllAsync();
 
@@ -10,11 +10,9 @@ public interface IJobPostingService
 
     Task<JobPosting?> GetByIdAsync(string id);
 
-    Task<JobPosting> CreateAsync(JobPosting jobPosting);
+    Task<JobPosting> AddAsync(JobPosting jobPosting);
 
     Task<bool> UpdateAsync(JobPosting jobPosting);
 
     Task<bool> DeleteAsync(string id);
-
-    Task<bool> ToggleIsActiveAsync(string id);
 }

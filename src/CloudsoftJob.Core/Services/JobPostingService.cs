@@ -1,45 +1,34 @@
 using CloudsoftJob.Core.Models;
+using CloudsoftJob.Core.Repositories.Interfaces;
 using CloudsoftJob.Core.Services.Interfaces;
 
 namespace CloudsoftJob.Core.Services;
 
 public class JobPostingService : IJobPostingService
 {
-    private readonly List<JobPosting> _jobPostings = [];
-    private readonly object _syncRoot = new();
+    private readonly IJobPostingRepository _jobPostingRepository;
 
-    public IReadOnlyCollection<JobPosting> GetAll()
+    public JobPostingService(IJobPostingRepository jobPostingRepository)
     {
-        lock (_syncRoot)
-        {
-            return _jobPostings.ToList();
-        }
+        _jobPostingRepository = jobPostingRepository;
     }
 
-    public IReadOnlyCollection<JobPosting> GetActive()
+    public Task<IReadOnlyCollection<JobPosting>> GetAllAsync()
     {
-        lock (_syncRoot)
-        {
-            return _jobPostings
-                .Where(jobPosting => jobPosting.IsActive)
-                .ToList();
-        }
+        return _jobPostingRepository.GetAllAsync();
     }
 
-    public JobPosting? GetById(string id)
+    public Task<IReadOnlyCollection<JobPosting>> GetActiveAsync()
     {
-        if (string.IsNullOrWhiteSpace(id))
-        {
-            return null;
-        }
-
-        lock (_syncRoot)
-        {
-            return _jobPostings.FirstOrDefault(jobPosting => jobPosting.Id == id);
-        }
+        return _jobPostingRepository.GetActiveAsync();
     }
 
-    public JobPosting Create(JobPosting jobPosting)
+    public Task<JobPosting?> GetByIdAsync(string id)
+    {
+        return _jobPostingRepository.GetByIdAsync(id);
+    }
+
+    public async Task<JobPosting> CreateAsync(JobPosting jobPosting)
     {
         ArgumentNullException.ThrowIfNull(jobPosting);
 
@@ -53,74 +42,29 @@ public class JobPostingService : IJobPostingService
             jobPosting.CreatedAtUtc = DateTime.UtcNow;
         }
 
-        lock (_syncRoot)
-        {
-            _jobPostings.Add(jobPosting);
-        }
-
-        return jobPosting;
+        return await _jobPostingRepository.AddAsync(jobPosting);
     }
 
-    public bool Update(JobPosting jobPosting)
+    public Task<bool> UpdateAsync(JobPosting jobPosting)
     {
-        ArgumentNullException.ThrowIfNull(jobPosting);
-
-        lock (_syncRoot)
-        {
-            var existingJobPosting = _jobPostings.FirstOrDefault(existing => existing.Id == jobPosting.Id);
-            if (existingJobPosting == null)
-            {
-                return false;
-            }
-
-            existingJobPosting.Title = jobPosting.Title;
-            existingJobPosting.Description = jobPosting.Description;
-            existingJobPosting.Location = jobPosting.Location;
-            existingJobPosting.CreatedAtUtc = jobPosting.CreatedAtUtc;
-            existingJobPosting.Deadline = jobPosting.Deadline;
-            existingJobPosting.IsActive = jobPosting.IsActive;
-
-            return true;
-        }
+        return _jobPostingRepository.UpdateAsync(jobPosting);
     }
 
-    public bool Delete(string id)
+    public Task<bool> DeleteAsync(string id)
     {
-        if (string.IsNullOrWhiteSpace(id))
+        return _jobPostingRepository.DeleteAsync(id);
+    }
+
+    public async Task<bool> ToggleIsActiveAsync(string id)
+    {
+        var jobPosting = await _jobPostingRepository.GetByIdAsync(id);
+        if (jobPosting == null)
         {
             return false;
         }
 
-        lock (_syncRoot)
-        {
-            var jobPosting = _jobPostings.FirstOrDefault(existing => existing.Id == id);
-            if (jobPosting == null)
-            {
-                return false;
-            }
+        jobPosting.IsActive = !jobPosting.IsActive;
 
-            _jobPostings.Remove(jobPosting);
-            return true;
-        }
-    }
-
-    public bool ToggleIsActive(string id)
-    {
-        if (string.IsNullOrWhiteSpace(id))
-        {
-            return false;
-        }
-
-        lock (_syncRoot)
-        {
-            var jobPosting = _jobPostings.FirstOrDefault(existing => existing.Id == id);
-            if (jobPosting == null)
-            {
-                return false;
-            }
-
-            jobPosting.IsActive = !jobPosting.IsActive;
-            return true;
-        }
+        return await _jobPostingRepository.UpdateAsync(jobPosting);
     }
 }

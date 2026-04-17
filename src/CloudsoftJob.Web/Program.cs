@@ -1,13 +1,19 @@
 using CloudsoftJob.Core.Services;
 using CloudsoftJob.Core.Services.Interfaces;
+using CloudsoftJob.Core.Data;
+using CloudsoftJob.Core.Repositories;
+using CloudsoftJob.Core.Repositories.Interfaces;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
-builder.Services.AddSingleton<IJobPostingService, JobPostingService>();
-builder.Services.AddSingleton<IEmployerAuthenticationService, EmployerAuthenticationService>();
+builder.Services.AddSingleton<IInMemoryDatabase, InMemoryDatabase>();
+builder.Services.AddScoped<IJobPostingRepository, JobPostingRepository>();
+builder.Services.AddScoped<IEmployerRepository, EmployerRepository>();
+builder.Services.AddScoped<IJobPostingService, JobPostingService>();
+builder.Services.AddScoped<IEmployerAuthenticationService, EmployerAuthenticationService>();
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>

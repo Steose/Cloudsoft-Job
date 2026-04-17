@@ -4,9 +4,9 @@ namespace CloudsoftJob.Core.Services.Interfaces;
 
 public interface IEmployerAuthenticationService
 {
-    EmployerUser? ValidateCredentials(string email, string password);
+    Task<EmployerUser?> ValidateCredentialsAsync(string email, string password);
 
-    EmployerUser? Register(string email, string password, string displayName);
+    Task<EmployerUser?> RegisterAsync(string email, string password, string displayName);
 
-    bool EmailExists(string email);
+    Task<bool> EmailExistsAsync(string email);
 }

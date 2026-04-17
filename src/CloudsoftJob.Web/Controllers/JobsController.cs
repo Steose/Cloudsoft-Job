@@ -17,9 +17,10 @@ public class JobsController : Controller
     }
 
     [HttpGet("")]
-    public IActionResult Index()
+    public async Task<IActionResult> Index()
     {
-        return View("JobPostings", _jobPostingService.GetAll());
+        var jobPostings = await _jobPostingService.GetAllAsync();
+        return View("JobPostings", jobPostings);
     }
 
     [HttpGet("/Jobs/JobPostings")]
@@ -35,9 +36,9 @@ public class JobsController : Controller
     }
 
     [HttpGet("Details/{id}")]
-    public IActionResult Details(string id)
+    public async Task<IActionResult> Details(string id)
     {
-        var jobPosting = _jobPostingService.GetById(id);
+        var jobPosting = await _jobPostingService.GetByIdAsync(id);
         if (jobPosting == null)
         {
             return NotFound();
@@ -49,15 +50,21 @@ public class JobsController : Controller
     [Authorize]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult ToggleIsActive(string id)
+    public async Task<IActionResult> ToggleIsActive(string id)
     {
-        var jobPosting = _jobPostingService.GetById(id);
-        if (jobPosting == null || !_jobPostingService.ToggleIsActive(id))
+        var jobPosting = await _jobPostingService.GetByIdAsync(id);
+        if (jobPosting == null)
         {
             return NotFound();
         }
 
-        TempData["SuccessMessage"] = jobPosting.IsActive
+        var willBeActive = !jobPosting.IsActive;
+        if (!await _jobPostingService.ToggleIsActiveAsync(id))
+        {
+            return NotFound();
+        }
+
+        TempData["SuccessMessage"] = willBeActive
             ? $"Job '{jobPosting.Title}' is now active."
             : $"Job '{jobPosting.Title}' has been deactivated.";
 
@@ -74,7 +81,7 @@ public class JobsController : Controller
     [Authorize]
     [HttpPost("Create")]
     [ValidateAntiForgeryToken]
-    public IActionResult Create(JobPosting jobPosting)
+    public async Task<IActionResult> Create(JobPosting jobPosting)
     {
         if (jobPosting.Deadline == default)
         {
@@ -91,7 +98,7 @@ public class JobsController : Controller
             return View("JobPosting", jobPosting);
         }
 
-        _jobPostingService.Create(jobPosting);
+        await _jobPostingService.CreateAsync(jobPosting);
         TempData["SuccessMessage"] = $"Thank you for posting the {jobPosting.Title} job!";
 
         return RedirectToAction(nameof(Index));
