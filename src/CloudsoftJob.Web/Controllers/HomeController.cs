@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using CloudSoft.Job.Web.Models;
+using CloudsoftJob.Web.Models;
 
-namespace CloudSoft.Job.Web.Controllers;
+namespace CloudsoftJob.Web.Controllers;
 
 public class HomeController : Controller
 {

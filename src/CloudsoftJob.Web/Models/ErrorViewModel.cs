@@ -1,4 +1,4 @@
-namespace CloudSoft.Job.Web.Models;
+namespace CloudsoftJob.Web.Models;
 
 public class ErrorViewModel
 {

@@ -1,4 +1,4 @@
-@model CloudSoft.Job.Domain.Entities.JobPosting
+@model CloudsoftJob.Core.Entities.JobPosting
 
 @{
     ViewData["Title"] = "Post a Job";
@@ -33,30 +33,44 @@
                             }
 
                             <form asp-action="JobPosting" method="post">
+                                @Html.HiddenFor(model => model.Id)
+                                @Html.HiddenFor(model => model.CreatedAtUtc)
+
                                 <div class="mb-3">
                                     <label asp-for="Title" class="form-label"></label>
                                     <div class="input-group">
-                                        <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                        <span class="input-group-text"><i class="fas fa-clipboard-list"></i></span>
                                         <input asp-for="Title" class="form-control" placeholder="Enter Job Title" />
                                     </div>
                                     <span asp-validation-for="Title" class="text-danger small"></span>
                                 </div>
+
                                 <div class="mb-3">
                                     <label asp-for="Description" class="form-label"></label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="fas fa-envelope"></i></span>
-                                        <input asp-for="Description" class="form-control" placeholder="Enter Job Description" />
-                                    </div>
+                                    <textarea asp-for="Description" class="form-control" rows="4"
+                                              placeholder="Enter Job Description"></textarea>
                                     <span asp-validation-for="Description" class="text-danger small"></span>
                                 </div>
+
                                 <div class="mb-3">
                                     <label asp-for="Location" class="form-label"></label>
                                     <div class="input-group">
-                                        <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                        <span class="input-group-text"><i class="fas fa-map-marker-alt"></i></span>
                                         <input asp-for="Location" class="form-control" placeholder="Enter Job Location" />
                                     </div>
                                     <span asp-validation-for="Location" class="text-danger small"></span>
                                 </div>
+
+                                <div class="form-check mb-3">
+                                    <input asp-for="IsActive" type="checkbox" class="form-check-input" />
+                                    <label asp-for="IsActive" class="form-check-label"></label>
+                                    <span asp-validation-for="IsActive" class="text-danger small"></span>
+                                </div>
+
+                                <div class="text-muted mb-3">
+                                    <small>Created at UTC will be saved automatically.</small>
+                                </div>
+
                                 <div class="d-grid">
                                     <button type="submit" class="btn btn-primary">
                                         <i class="fas fa-paper-plane me-2"></i>Post Job
