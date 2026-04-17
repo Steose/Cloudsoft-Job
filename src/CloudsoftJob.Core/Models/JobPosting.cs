@@ -24,8 +24,10 @@ public class JobPosting
     // UTC timestamp for when the job posting is created; defaults to the current UTC time.
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
-    // Final date for applications; defaults to three weeks from today.
-    public DateTime Deadline { get; set; } = DateTime.UtcNow.Date.AddDays(21);
+    // Final date for applications.
+    [Required(ErrorMessage = "The application deadline is required.")]
+    [DataType(DataType.Date)]
+    public DateTime Deadline { get; set; }
 
     // Shows whether the job posting is currently active; defaults to active.
     public bool IsActive { get; set; } = true;

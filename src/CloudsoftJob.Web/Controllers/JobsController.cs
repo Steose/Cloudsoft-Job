@@ -1,6 +1,7 @@
 
 using CloudsoftJob.Core.Models;
 using CloudsoftJob.Core.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CloudsoftJob.Web.Controllers;
@@ -45,7 +46,9 @@ public class JobsController : Controller
         return View(jobPosting);
     }
 
+    [Authorize]
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public IActionResult ToggleIsActive(string id)
     {
         var jobPosting = _jobPostingService.GetById(id);
@@ -61,15 +64,28 @@ public class JobsController : Controller
         return RedirectToAction(nameof(JobPostings));
     }
 
+    [Authorize]
     [HttpGet("Create")]
     public IActionResult Create()
     {
         return View("JobPosting", new JobPosting());
     }
 
+    [Authorize]
     [HttpPost("Create")]
+    [ValidateAntiForgeryToken]
     public IActionResult Create(JobPosting jobPosting)
     {
+        if (jobPosting.Deadline == default)
+        {
+            ModelState.AddModelError(nameof(jobPosting.Deadline), "The application deadline is required.");
+        }
+
+        if (jobPosting.Deadline.Date < DateTime.UtcNow.Date)
+        {
+            ModelState.AddModelError(nameof(jobPosting.Deadline), "The application deadline cannot be in the past.");
+        }
+
         if (!ModelState.IsValid)
         {
             return View("JobPosting", jobPosting);

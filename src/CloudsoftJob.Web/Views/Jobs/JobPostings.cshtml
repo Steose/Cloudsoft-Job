@@ -15,9 +15,21 @@
 }
 
 <p>
-    <a class="btn btn-primary" asp-controller="Jobs" asp-action="Create">
-        <i class="fas fa-plus"></i> Post New Job
-    </a>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <a class="btn btn-primary" asp-controller="Jobs" asp-action="Create">
+            <i class="fas fa-plus"></i> Post New Job
+        </a>
+    }
+    else
+    {
+        <a class="btn btn-outline-primary" asp-controller="Account" asp-action="Register" asp-route-returnUrl="/Job/Create">
+            <i class="fas fa-user-plus"></i> Register as Employer to Post Job
+        </a>
+        <a class="btn btn-link" asp-controller="Account" asp-action="Login" asp-route-returnUrl="/Job/Create">
+            Employer Login
+        </a>
+    }
 </p>
 
 @if (Model.Count == 0)

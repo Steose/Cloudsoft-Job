@@ -14,9 +14,13 @@
                         Find your next career opportunity and discover top notch companies. Browse open positions and apply today.
                     </p>
                     <div class="d-grid gap-2 d-md-flex justify-content-center">
-                        <a asp-controller="Jobs" asp-action="PostJob"
+                        <a asp-controller="Jobs" asp-action="Index"
                            class="btn btn-light btn-lg px-4 shadow">
-                            <i class="fas fa-envelope me-2"></i>Post a Job
+                            <i class="fas fa-briefcase me-2"></i>Browse Jobs
+                        </a>
+                        <a asp-controller="Account" asp-action="Register" asp-route-returnUrl="/Job/Create"
+                           class="btn btn-outline-light btn-lg px-4 shadow">
+                            <i class="fas fa-building me-2"></i>Register as Employer
                         </a>
                     </div>
                 </div>

@@ -53,11 +53,6 @@ public class JobPostingService : IJobPostingService
             jobPosting.CreatedAtUtc = DateTime.UtcNow;
         }
 
-        if (jobPosting.Deadline == default)
-        {
-            jobPosting.Deadline = DateTime.UtcNow.Date.AddDays(21);
-        }
-
         lock (_syncRoot)
         {
             _jobPostings.Add(jobPosting);

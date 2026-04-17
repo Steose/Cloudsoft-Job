@@ -2,6 +2,8 @@
 
 @{
     ViewData["Title"] = "Post a Job";
+    var deadlineValue = Model.Deadline == default ? string.Empty : Model.Deadline.ToString("yyyy-MM-dd");
+    var minimumDeadline = DateTime.UtcNow.ToString("yyyy-MM-dd");
 }
 
 <div class="container py-4">
@@ -35,7 +37,6 @@
                             <form asp-action="Create" method="post">
                                 @Html.HiddenFor(model => model.Id)
                                 @Html.HiddenFor(model => model.CreatedAtUtc)
-                                @Html.HiddenFor(model => model.Deadline)
 
                                 <div class="mb-3">
                                     <label asp-for="Title" class="form-label"></label>
@@ -60,6 +61,15 @@
                                         <input asp-for="Location" class="form-control" placeholder="Enter Job Location" />
                                     </div>
                                     <span asp-validation-for="Location" class="text-danger small"></span>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label asp-for="Deadline" class="form-label"></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-calendar"></i></span>
+                                        <input asp-for="Deadline" class="form-control" type="date" value="@deadlineValue" min="@minimumDeadline" />
+                                    </div>
+                                    <span asp-validation-for="Deadline" class="text-danger small"></span>
                                 </div>
 
                                 <div class="form-check mb-3">
