@@ -1,6 +1,7 @@
 using CloudsoftJob.Core.Services;
 using CloudsoftJob.Core.Services.Interfaces;
 using CloudsoftJob.Core.Data;
+using CloudsoftJob.Core.Options;
 using CloudsoftJob.Core.Repositories;
 using CloudsoftJob.Core.Repositories.Interfaces;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -9,9 +10,25 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
-builder.Services.AddSingleton<IInMemoryDatabase, InMemoryDatabase>();
-builder.Services.AddScoped<IJobPostingRepository, JobPostingRepository>();
-builder.Services.AddScoped<IEmployerRepository, EmployerRepository>();
+builder.Services.Configure<MongoDbOptions>(builder.Configuration.GetSection(MongoDbOptions.SectionName));
+builder.Services.Configure<FeatureFlagsOptions>(builder.Configuration.GetSection(FeatureFlagsOptions.SectionName));
+
+var featureFlags = builder.Configuration
+    .GetSection(FeatureFlagsOptions.SectionName)
+    .Get<FeatureFlagsOptions>() ?? new FeatureFlagsOptions();
+
+if (featureFlags.UseMongoDb)
+{
+    builder.Services.AddScoped<IJobPostingRepository, MongoJobPostingRepository>();
+    builder.Services.AddScoped<IEmployerRepository, MongoEmployerRepository>();
+}
+else
+{
+    builder.Services.AddSingleton<IInMemoryDatabase, InMemoryDatabase>();
+    builder.Services.AddScoped<IJobPostingRepository, JobPostingRepository>();
+    builder.Services.AddScoped<IEmployerRepository, EmployerRepository>();
+}
+
 builder.Services.AddScoped<IJobPostingService, JobPostingService>();
 builder.Services.AddScoped<IEmployerAuthenticationService, EmployerAuthenticationService>();
 builder.Services

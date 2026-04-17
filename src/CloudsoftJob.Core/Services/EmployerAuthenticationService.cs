@@ -41,7 +41,8 @@ public class EmployerAuthenticationService : IEmployerAuthenticationService
                 Email = email.Trim(),
                 DisplayName = displayName.Trim()
             },
-            Password = password
+            Password = password,
+            NormalizedEmail = email.Trim().ToUpperInvariant()
         };
 
         var registeredEmployerAccount = await _employerRepository.AddAsync(employerAccount);

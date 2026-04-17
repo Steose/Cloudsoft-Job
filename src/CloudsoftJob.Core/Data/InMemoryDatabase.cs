@@ -15,7 +15,8 @@ public class InMemoryDatabase : IInMemoryDatabase
                 Email = "employer@cloudsoft.com",
                 DisplayName = "CloudSoft Employer"
             },
-            Password = "Password123!"
+            Password = "Password123!",
+            NormalizedEmail = NormalizeEmail("employer@cloudsoft.com")
         };
 
         Employers.TryAdd(NormalizeEmail(demoEmployer.User.Email), demoEmployer);

@@ -46,8 +46,9 @@ public class EmployerRepository : IEmployerRepository
         }
 
         var storedEmployerAccount = Clone(employerAccount);
+        storedEmployerAccount.NormalizedEmail = NormalizeEmail(storedEmployerAccount.User.Email);
         var added = _database.Employers.TryAdd(
-            NormalizeEmail(storedEmployerAccount.User.Email),
+            storedEmployerAccount.NormalizedEmail,
             storedEmployerAccount);
 
         return Task.FromResult(added ? Clone(storedEmployerAccount) : null);
@@ -68,7 +69,8 @@ public class EmployerRepository : IEmployerRepository
                 Email = employerAccount.User.Email,
                 DisplayName = employerAccount.User.DisplayName
             },
-            Password = employerAccount.Password
+            Password = employerAccount.Password,
+            NormalizedEmail = employerAccount.NormalizedEmail
         };
     }
 }

@@ -1,0 +1,27 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      FeatureFlags__UseMongoDb: "true"
+      MongoDb__ConnectionString: mongodb://mongo:27017
+      MongoDb__DatabaseName: CloudsoftJob
+      MongoDb__JobPostingsCollectionName: jobPostings
+      MongoDb__EmployersCollectionName: employers
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:
