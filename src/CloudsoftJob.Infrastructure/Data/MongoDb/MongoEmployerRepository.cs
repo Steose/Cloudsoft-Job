@@ -12,6 +12,8 @@ public class MongoEmployerRepository : IEmployerRepository
 
     public MongoEmployerRepository(IOptions<MongoDbOptions> options)
     {
+        MongoDbMappings.Register();
+
         var mongoDbOptions = options.Value;
         var client = new MongoClient(mongoDbOptions.ConnectionString);
         var database = client.GetDatabase(mongoDbOptions.DatabaseName);

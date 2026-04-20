@@ -12,6 +12,8 @@ public class MongoJobPostingRepository : IJobPostingRepository
 
     public MongoJobPostingRepository(IOptions<MongoDbOptions> options)
     {
+        MongoDbMappings.Register();
+
         var mongoDbOptions = options.Value;
         var client = new MongoClient(mongoDbOptions.ConnectionString);
         var database = client.GetDatabase(mongoDbOptions.DatabaseName);
