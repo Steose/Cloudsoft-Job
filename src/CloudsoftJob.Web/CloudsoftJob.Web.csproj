@@ -7,7 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CloudsoftJob.Core\CloudsoftJob.Core.csproj" />
+    <ProjectReference Include="..\CloudsoftJob.Application\CloudsoftJob.Application.csproj" />
+    <ProjectReference Include="..\CloudsoftJob.Domain\CloudsoftJob.Domain.csproj" />
+    <ProjectReference Include="..\CloudsoftJob.Infrastructure\CloudsoftJob.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
