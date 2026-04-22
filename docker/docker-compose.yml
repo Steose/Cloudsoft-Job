@@ -1,5 +1,5 @@
 services:
-  web:
+  cloudsoftjob:
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -16,7 +16,7 @@ services:
       - mongo
 
   mongo:
-    image: mongo:7
+    image: mongo:latest
     restart: unless-stopped
     ports:
       - "27017:27017"
