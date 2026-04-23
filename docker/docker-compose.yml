@@ -1,5 +1,5 @@
 services:
-  cloudsoftjob:
+  cloudsoft:
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -9,7 +9,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       FeatureFlags__UseMongoDb: "true"
       MongoDb__ConnectionString: mongodb://mongo:27017
-      MongoDb__DatabaseName: CloudsoftJob
+      MongoDb__DatabaseName: Cloudsoft
       MongoDb__JobPostingsCollectionName: jobPostings
       MongoDb__EmployersCollectionName: employers
     depends_on:
