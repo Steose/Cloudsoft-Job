@@ -14,6 +14,6 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - run: dotnet restore CloudsoftJob.sln
-      - run: dotnet build CloudsoftJob.sln --no-restore
-      - run: dotnet test CloudsoftJob.sln --no-build --no-restore
+      - run: dotnet restore Cloudsoft.sln
+      - run: dotnet build Cloudsoft.sln --no-restore
+      - run: dotnet test Cloudsoft.sln --no-build --no-restore
