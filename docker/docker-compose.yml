@@ -14,14 +14,22 @@ services:
       MongoDb__EmployersCollectionName: employers
     depends_on:
       - mongo
+    networks:
+      - mongo_network
 
   mongo:
     image: mongo:latest
-    restart: unless-stopped
+    restart: always
     ports:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
+    networks:
+      - mongo_network
 
 volumes:
   mongo-data:
+
+networks:
+  mongo_network:
+    driver: bridge

@@ -1,0 +1,134 @@
+#cloud-config
+package_update: true
+package_upgrade: false
+
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gpg
+  - software-properties-common
+  - wget
+
+write_files:
+  - path: /etc/systemd/system/cloudsoft-web.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Cloudsoft Web ASP.NET Core Application
+      After=network.target
+      ConditionPathExists=/opt/cloudsoft/Cloudsoft.Web.dll
+
+      [Service]
+      Type=simple
+      User=azureuser
+      Group=azureuser
+      WorkingDirectory=/opt/cloudsoft
+      ExecStart=/usr/bin/env dotnet /opt/cloudsoft/Cloudsoft.Web.dll
+      Restart=always
+      RestartSec=5
+      KillSignal=SIGINT
+      SyslogIdentifier=cloudsoft-web
+      Environment=ASPNETCORE_URLS=http://0.0.0.0:8080
+      Environment=ASPNETCORE_ENVIRONMENT=Production
+      Environment=FeatureFlags__UseMongoDb=true
+      Environment=MongoDb__ConnectionString=__MONGODB_CONNECTION_STRING__
+      Environment=MongoDb__DatabaseName=Cloudsoft
+      Environment=MongoDb__JobPostingsCollectionName=jobPostings
+      Environment=MongoDb__EmployersCollectionName=employers
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /etc/systemd/system/cloudsoft-web.path
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Start Cloudsoft Web when the published app is deployed
+
+      [Path]
+      PathExists=/opt/cloudsoft/Cloudsoft.Web.dll
+      Unit=cloudsoft-web.service
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /opt/cloudsoft/deploy-cloudsoft.sh
+    permissions: "0755"
+    owner: azureuser:azureuser
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      APP_DIR="/opt/cloudsoft"
+
+      echo "Cloudsoft deployment directory: ${APP_DIR}"
+      echo "Expected published entrypoint: ${APP_DIR}/Cloudsoft.Web.dll"
+      echo
+      echo "Publish locally from the repository root with:"
+      echo "  dotnet publish src/Cloudsoft.Web/Cloudsoft.Web.csproj -c Release -o ./publish"
+      echo "Or from infra/ with:"
+      echo "  dotnet publish ../src/Cloudsoft.Web/Cloudsoft.Web.csproj -c Release -o ./publish"
+      echo
+      echo "Copy files to the VM with:"
+      echo "  scp -r ./publish/* azureuser@<vm-ip>:${APP_DIR}/"
+      echo
+      echo "The VM is configured to auto-start the app when ${APP_DIR}/Cloudsoft.Web.dll appears."
+      echo "If you want to force a rescan after copying files:"
+      echo "  ssh azureuser@<vm-ip> 'sudo systemctl restart cloudsoft-web.path'"
+      echo
+      echo "Check service health with:"
+      echo "  ssh azureuser@<vm-ip> 'systemctl status cloudsoft-web --no-pager'"
+      echo "  ssh azureuser@<vm-ip> 'journalctl -u cloudsoft-web -n 100 --no-pager'"
+
+  - path: /opt/cloudsoft/verify-cloudsoft.sh
+    permissions: "0755"
+    owner: azureuser:azureuser
+    content: |
+      #!/usr/bin/env bash
+      set -u
+
+      echo "== File check =="
+      ls -la /opt/cloudsoft
+      echo
+
+      echo "== systemd path unit =="
+      sudo systemctl status cloudsoft-web.path --no-pager || true
+      echo
+
+      echo "== systemd service =="
+      sudo systemctl status cloudsoft-web --no-pager || true
+      echo
+
+      echo "== Recent service logs =="
+      sudo journalctl -u cloudsoft-web -n 100 --no-pager || true
+      echo
+
+      echo "== Local HTTP probe =="
+      curl -i --max-time 10 http://localhost:8080 || true
+      echo
+
+      echo "== Listening sockets =="
+      sudo ss -ltnp | grep 8080 || true
+
+runcmd:
+  - mkdir -p /opt/cloudsoft
+  - chown -R azureuser:azureuser /opt/cloudsoft
+  - |
+    apt-get update
+    apt-get install -y software-properties-common ca-certificates wget gpg curl
+    if ! apt-cache show aspnetcore-runtime-10.0 >/dev/null 2>&1; then
+      add-apt-repository -y ppa:dotnet/backports
+      apt-get update
+    fi
+    apt-get install -y aspnetcore-runtime-10.0 || true
+    if [ ! -x /usr/bin/dotnet ] && [ ! -x /usr/share/dotnet/dotnet ]; then
+      curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
+      chmod +x /tmp/dotnet-install.sh
+      /tmp/dotnet-install.sh --channel 10.0 --runtime aspnetcore --install-dir /usr/share/dotnet
+      ln -sf /usr/share/dotnet/dotnet /usr/bin/dotnet
+      rm -f /tmp/dotnet-install.sh
+    fi
+  - systemctl daemon-reload
+  - systemctl enable cloudsoft-web.path
+  - systemctl start cloudsoft-web.path
