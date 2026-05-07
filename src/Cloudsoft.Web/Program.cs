@@ -6,6 +6,8 @@ using Cloudsoft.Core.Data;
 using Cloudsoft.Core.Options;
 using Cloudsoft.Core.Repositories;
 using Cloudsoft.Core.Repositories.Interfaces;
+using Cloudsoft.Core.Storage;
+using Cloudsoft.Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -47,6 +49,8 @@ else
 
 builder.Services.AddScoped<IJobPostingService, JobPostingService>();
 builder.Services.AddScoped<IEmployerAuthenticationService, EmployerAuthenticationService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IImageService, LocalImageService>();
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
