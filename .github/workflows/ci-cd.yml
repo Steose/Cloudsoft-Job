@@ -6,6 +6,17 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  AZURE_LOCATION: ${{ vars.AZURE_LOCATION || 'northeurope' }}
+  AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || 'cloudsoft-job-aca-rg' }}
+  ACA_PREFIX: ${{ vars.ACA_PREFIX || 'cloudsoftjob' }}
+  IMAGE_REPOSITORY: ${{ vars.IMAGE_REPOSITORY || 'cloudsoft-job' }}
+
 jobs:
   build-test:
     runs-on: ubuntu-latest
@@ -13,7 +24,98 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: ${{ env.DOTNET_VERSION }}
       - run: dotnet restore Cloudsoft.sln
       - run: dotnet build Cloudsoft.sln --no-restore
       - run: dotnet test Cloudsoft.sln --no-build --no-restore
+
+  deploy-azure-container-apps:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-test
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Create resource group
+        run: |
+          az group create \
+            --name "$AZURE_RESOURCE_GROUP" \
+            --location "$AZURE_LOCATION"
+
+      - name: Create or update Azure Container Registry
+        id: registry
+        run: |
+          az deployment group create \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --template-file infra/container-apps/registry.bicep \
+            --parameters location="$AZURE_LOCATION" prefix="$ACA_PREFIX"
+
+          ACR_NAME=$(az deployment group show \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name registry \
+            --query "properties.outputs.acrName.value" \
+            --output tsv)
+
+          ACR_LOGIN_SERVER=$(az deployment group show \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name registry \
+            --query "properties.outputs.acrLoginServer.value" \
+            --output tsv)
+
+          echo "acr_name=$ACR_NAME" >> "$GITHUB_OUTPUT"
+          echo "acr_login_server=$ACR_LOGIN_SERVER" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image to ACR
+        env:
+          ACR_NAME: ${{ steps.registry.outputs.acr_name }}
+          ACR_LOGIN_SERVER: ${{ steps.registry.outputs.acr_login_server }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          az acr login --name "$ACR_NAME"
+          docker build \
+            --file docker/Dockerfile \
+            --tag "$ACR_LOGIN_SERVER/$IMAGE_REPOSITORY:$IMAGE_TAG" \
+            --tag "$ACR_LOGIN_SERVER/$IMAGE_REPOSITORY:latest" \
+            .
+          docker push "$ACR_LOGIN_SERVER/$IMAGE_REPOSITORY:$IMAGE_TAG"
+          docker push "$ACR_LOGIN_SERVER/$IMAGE_REPOSITORY:latest"
+
+      - name: Deploy Azure Container App
+        id: deploy
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          MONGODB_CONNECTION_STRING: ${{ secrets.MONGODB_CONNECTION_STRING }}
+          AZURE_BLOB_CONTAINER_URL: ${{ secrets.AZURE_BLOB_CONTAINER_URL }}
+          KEY_VAULT_URI: ${{ secrets.KEY_VAULT_URI }}
+        run: |
+          az deployment group create \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --template-file infra/container-apps/main.bicep \
+            --parameters \
+              location="$AZURE_LOCATION" \
+              prefix="$ACA_PREFIX" \
+              imageRepository="$IMAGE_REPOSITORY" \
+              imageTag="$IMAGE_TAG" \
+              useMongoDb="${{ vars.USE_MONGODB || 'false' }}" \
+              mongoDbConnectionString="$MONGODB_CONNECTION_STRING" \
+              useAzureStorage="${{ vars.USE_AZURE_STORAGE || 'false' }}" \
+              azureBlobContainerUrl="$AZURE_BLOB_CONTAINER_URL" \
+              useAzureKeyVault="${{ vars.USE_AZURE_KEY_VAULT || 'false' }}" \
+              keyVaultUri="$KEY_VAULT_URI"
+
+          CONTAINER_APP_URL=$(az deployment group show \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name main \
+            --query "properties.outputs.containerAppUrl.value" \
+            --output tsv)
+
+          echo "container_app_url=$CONTAINER_APP_URL" >> "$GITHUB_OUTPUT"
+          echo "Deployed to $CONTAINER_APP_URL"
