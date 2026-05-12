@@ -1,11 +1,13 @@
 using Azure.Extensions.AspNetCore.Configuration.Secrets;
 using Azure.Identity;
+using Cloudsoft.Api.Authentication;
 using Cloudsoft.Core.Data;
 using Cloudsoft.Core.Options;
 using Cloudsoft.Core.Repositories;
 using Cloudsoft.Core.Repositories.Interfaces;
 using Cloudsoft.Core.Services;
 using Cloudsoft.Core.Services.Interfaces;
+using Microsoft.AspNetCore.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,7 +16,8 @@ ConfigureKeyVault(builder);
 builder.Services.AddControllers();
 builder.Services.Configure<MongoDbOptions>(builder.Configuration.GetSection(MongoDbOptions.SectionName));
 builder.Services.Configure<FeatureFlagsOptions>(builder.Configuration.GetSection(FeatureFlagsOptions.SectionName));
-builder.Services.Configure<KeyVaultOptions>(builder.Configuration.GetSection(KeyVaultOptions.SectionName));
+builder.Services.Configure<AzureKeyVaultOptions>(builder.Configuration.GetSection(AzureKeyVaultOptions.SectionName));
+builder.Services.Configure<ApiAuthOptions>(builder.Configuration.GetSection(ApiAuthOptions.SectionName));
 
 var featureFlags = builder.Configuration
     .GetSection(FeatureFlagsOptions.SectionName)
@@ -45,6 +48,12 @@ else
 
 builder.Services.AddScoped<IJobPostingService, JobPostingService>();
 builder.Services.AddScoped<IEmployerAuthenticationService, EmployerAuthenticationService>();
+builder.Services
+    .AddAuthentication(ApiKeyAuthenticationDefaults.AuthenticationScheme)
+    .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(
+        ApiKeyAuthenticationDefaults.AuthenticationScheme,
+        options => { });
+builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
@@ -54,6 +63,8 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
@@ -70,25 +81,20 @@ static void ConfigureKeyVault(WebApplicationBuilder builder)
     }
 
     var keyVaultOptions = builder.Configuration
-        .GetSection(KeyVaultOptions.SectionName)
-        .Get<KeyVaultOptions>() ?? new KeyVaultOptions();
+        .GetSection(AzureKeyVaultOptions.SectionName)
+        .Get<AzureKeyVaultOptions>() ?? new AzureKeyVaultOptions();
 
-    if (string.IsNullOrWhiteSpace(keyVaultOptions.VaultUri))
+    if (string.IsNullOrWhiteSpace(keyVaultOptions.KeyVaultUri))
     {
-        Console.WriteLine("Azure Key Vault is enabled by flag but KeyVault:VaultUri is missing. Continuing without Key Vault.");
+        Console.WriteLine("Azure Key Vault is enabled by flag but AzureKeyVault:KeyVaultUri is missing. Continuing without Key Vault.");
         return;
     }
 
     try
     {
         builder.Configuration.AddAzureKeyVault(
-            new Uri(keyVaultOptions.VaultUri),
-            new DefaultAzureCredential(new DefaultAzureCredentialOptions
-            {
-                ManagedIdentityClientId = string.IsNullOrWhiteSpace(keyVaultOptions.ManagedIdentityClientId)
-                    ? null
-                    : keyVaultOptions.ManagedIdentityClientId
-            }));
+            new Uri(keyVaultOptions.KeyVaultUri),
+            new DefaultAzureCredential());
     }
     catch (Exception ex)
     {

@@ -106,7 +106,7 @@ jobs:
               imageTag="$IMAGE_TAG" \
               useMongoDb="${{ vars.USE_MONGODB || 'false' }}" \
               mongoDbConnectionString="$MONGODB_CONNECTION_STRING" \
-              useAzureStorage="${{ vars.USE_AZURE_STORAGE || 'false' }}" \
+              useAzureStorage="${{ vars.USE_AZURE_STORAGE || 'true' }}" \
               azureBlobContainerUrl="$AZURE_BLOB_CONTAINER_URL" \
               useAzureKeyVault="${{ vars.USE_AZURE_KEY_VAULT || 'false' }}" \
               keyVaultUri="$KEY_VAULT_URI"

@@ -11,3 +11,5 @@ param cosmosAccountName = 'clsjobcosmosmongo12345'
 param cosmosMongoDbName = 'clsjobdb'
 
 param keyVaultName = 'clsjobkv12345'
+
+param imageBlobContainerName = 'images'

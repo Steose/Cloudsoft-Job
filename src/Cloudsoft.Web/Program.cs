@@ -12,13 +12,14 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
 
-ConfigureKeyVault(builder);
+//ConfigureKeyVault(builder);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 builder.Services.Configure<MongoDbOptions>(builder.Configuration.GetSection(MongoDbOptions.SectionName));
 builder.Services.Configure<FeatureFlagsOptions>(builder.Configuration.GetSection(FeatureFlagsOptions.SectionName));
-builder.Services.Configure<KeyVaultOptions>(builder.Configuration.GetSection(KeyVaultOptions.SectionName));
+builder.Services.Configure<AzureBlobOptions>(builder.Configuration.GetSection(AzureBlobOptions.SectionName));
+builder.Services.Configure<AzureKeyVaultOptions>(builder.Configuration.GetSection(AzureKeyVaultOptions.SectionName));
 
 var featureFlags = builder.Configuration
     .GetSection(FeatureFlagsOptions.SectionName)
@@ -40,17 +41,21 @@ if (useMongoDb)
     builder.Services.AddScoped<EmployerRepository>();
     builder.Services.AddScoped<IJobPostingRepository, ResilientJobPostingRepository>();
     builder.Services.AddScoped<IEmployerRepository, ResilientEmployerRepository>();
+
+    Console.WriteLine("Using MongoDB repository");
+
 }
 else
 {
     builder.Services.AddScoped<IJobPostingRepository, JobPostingRepository>();
     builder.Services.AddScoped<IEmployerRepository, EmployerRepository>();
+
+    Console.WriteLine("Using in-memory repository");
+
 }
 
 builder.Services.AddScoped<IJobPostingService, JobPostingService>();
 builder.Services.AddScoped<IEmployerAuthenticationService, EmployerAuthenticationService>();
-builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<IImageService, LocalImageService>();
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -58,6 +63,50 @@ builder.Services
         options.LoginPath = "/Account/Login";
         options.AccessDeniedPath = "/Account/Login";
     });
+
+builder.Services.AddHttpContextAccessor();
+// Check if Azure Storage should be used
+bool useAzureStorage = builder.Configuration.GetValue<bool>("FeatureFlags:UseAzureStorage");
+
+if (useAzureStorage)
+{
+    // Register Azure Blob Storage image service for production
+    builder.Services.AddSingleton<IImageService, AzureBlobImageService>();
+    Console.WriteLine("Using Azure Blob Storage for images");
+}
+else
+{
+    // Register local image service for development
+    builder.Services.AddSingleton<IImageService, LocalImageService>();
+    Console.WriteLine("Using local storage for images");
+}
+// Check if Azure Key Vault should be used
+bool useAzureKeyVault = builder.Configuration.GetValue<bool>("FeatureFlags:UseAzureKeyVault");
+
+if (useAzureKeyVault)
+{
+    // Get Key Vault URI from configuration
+    var keyVaultOptions = builder.Configuration
+        .GetSection(AzureKeyVaultOptions.SectionName)
+        .Get<AzureKeyVaultOptions>() ?? new AzureKeyVaultOptions();
+    var keyVaultUri = keyVaultOptions?.KeyVaultUri;
+
+    // Register Azure Key Vault as configuration provider
+    if (string.IsNullOrEmpty(keyVaultUri))
+    {
+        throw new InvalidOperationException("Key Vault URI is not configured.");
+    }
+
+    builder.Configuration.AddAzureKeyVault(
+        new Uri(keyVaultUri),
+        new DefaultAzureCredential());
+
+    Console.WriteLine("Using Azure Key Vault for configuration");
+}
+
+
+
+
 
 var app = builder.Build();
 
@@ -85,43 +134,43 @@ app.MapControllerRoute(
 
 app.Run();
 
-static void ConfigureKeyVault(WebApplicationBuilder builder)
-{
-    var featureFlags = builder.Configuration
-        .GetSection(FeatureFlagsOptions.SectionName)
-        .Get<FeatureFlagsOptions>() ?? new FeatureFlagsOptions();
-
-    if (!featureFlags.UseAzureKeyVault)
-    {
-        return;
-    }
-
-    var keyVaultOptions = builder.Configuration
-        .GetSection(KeyVaultOptions.SectionName)
-        .Get<KeyVaultOptions>() ?? new KeyVaultOptions();
-
-    if (string.IsNullOrWhiteSpace(keyVaultOptions.VaultUri))
-    {
-        Console.WriteLine("Azure Key Vault is enabled by flag but KeyVault:VaultUri is missing. Continuing without Key Vault.");
-        return;
-    }
-
-    try
-    {
-        builder.Configuration.AddAzureKeyVault(
-            new Uri(keyVaultOptions.VaultUri),
-            new DefaultAzureCredential(new DefaultAzureCredentialOptions
-            {
-                ManagedIdentityClientId = string.IsNullOrWhiteSpace(keyVaultOptions.ManagedIdentityClientId)
-                    ? null
-                    : keyVaultOptions.ManagedIdentityClientId
-            }));
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Failed to load configuration from Azure Key Vault. Continuing without Key Vault. {ex.Message}");
-    }
-}
+//  static void ConfigureKeyVault(WebApplicationBuilder builder)
+//  {
+    //  var featureFlags = builder.Configuration
+        //  .GetSection(FeatureFlagsOptions.SectionName)
+        //  .Get<FeatureFlagsOptions>() ?? new FeatureFlagsOptions();
+//  
+    //  if (!featureFlags.UseAzureKeyVault)
+    //  {
+        //  return;
+    //  }
+//  
+    //  var keyVaultOptions = builder.Configuration
+        //  .GetSection(AzureKeyVaultOptions.SectionName)
+        //  .Get<KeyVaultOptions>() ?? new KeyVaultOptions();
+//  
+    //  if (string.IsNullOrWhiteSpace(keyVaultOptions.VaultUri))
+    //  {
+        //  Console.WriteLine("Azure Key Vault is enabled by flag but KeyVault:VaultUri is missing. Continuing without Key Vault.");
+        //  return;
+    //  }
+//  
+    //  try
+    //  {
+        //  builder.Configuration.AddAzureKeyVault(
+            //  new Uri(keyVaultOptions.VaultUri),
+            //  new DefaultAzureCredential(new DefaultAzureCredentialOptions
+            //  {
+                //  ManagedIdentityClientId = string.IsNullOrWhiteSpace(keyVaultOptions.ManagedIdentityClientId)
+                    //  ? null
+                    //  : keyVaultOptions.ManagedIdentityClientId
+            //  }));
+    //  }
+    //  catch (Exception ex)
+    //  {
+        //  Console.WriteLine($"Failed to load configuration from Azure Key Vault. Continuing without Key Vault. {ex.Message}");
+    //  }
+//  }
 
 static bool HasValidMongoConfiguration(ConfigurationManager configuration)
 {

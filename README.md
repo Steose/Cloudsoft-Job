@@ -193,3 +193,34 @@ ssh -i ~/.ssh/id_ed25519 \
   azureuser@10.0.2.4 \
   'sudo journalctl -u cloudsoft-web.service -n 100 --no-pager'
   ```
+
+
+### If you are using the Cosmos DB account from this repo, get the key first:
+
+```bash
+az cosmosdb keys list \
+  --resource-group CloudsoftJobRG \
+  --name clsjobcosmosmongo12345 \
+  --type keys \
+  --query primaryMasterKey \
+  --output tsv
+```
+
+### Then build the connection string with:
+
+```text
+username = clsjobcosmosmongo12345
+password = <primaryMasterKey>
+host = clsjobcosmosmongo12345.mongo.cosmos.azure.com
+database = clsjobdb
+```
+
+### After setting it, verify it:
+
+```bash
+az keyvault secret show \
+  --vault-name clsjobkv12345 \
+  --name "MongoDb--ConnectionString" \
+  --query value \
+  --output tsv
+```

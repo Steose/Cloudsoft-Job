@@ -11,6 +11,7 @@ WEB_PROJECT_FILE="${REPO_ROOT}/src/Cloudsoft.Web/Cloudsoft.Web.csproj"
 PUBLISH_DIR="${REPO_ROOT}/publish"
 SETUP_APP_SCRIPT="${SCRIPT_DIR}/setup-app-vm.sh"
 SETUP_PROXY_SCRIPT="${SCRIPT_DIR}/setup-proxy-vm.sh"
+HERO_IMAGE_FILE="${REPO_ROOT}/src/Cloudsoft.Web/wwwroot/images/hero.png"
 SSH_KEY_PATH="${SSH_PRIVATE_KEY_PATH:-${HOME}/.ssh/id_ed25519}"
 ADMIN_USERNAME="${ADMIN_USERNAME:-azureuser}"
 SSH_OPTIONS=(
@@ -108,6 +109,24 @@ COSMOS_DB_NAME=$(az deployment group show \
   --query "properties.outputs.cosmosMongoDbNameOutput.value" \
   --output tsv)
 
+IMAGE_STORAGE_ACCOUNT_NAME=$(az deployment group show \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$DEPLOYMENT_NAME" \
+  --query "properties.outputs.imageStorageAccountNameOutput.value" \
+  --output tsv)
+
+IMAGE_BLOB_CONTAINER_NAME=$(az deployment group show \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$DEPLOYMENT_NAME" \
+  --query "properties.outputs.imageBlobContainerNameOutput.value" \
+  --output tsv)
+
+IMAGE_BLOB_CONTAINER_URL=$(az deployment group show \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$DEPLOYMENT_NAME" \
+  --query "properties.outputs.imageBlobContainerUrl.value" \
+  --output tsv)
+
 if [[ ! -f "${SSH_KEY_PATH}" ]]; then
   echo "SSH key not found: ${SSH_KEY_PATH}"
   echo "Set SSH_PRIVATE_KEY_PATH to the private key that matches infra/main.bicepparam."
@@ -132,6 +151,35 @@ COSMOS_USERNAME_ENCODED=$(urlencode "$COSMOS_ACCOUNT_NAME")
 COSMOS_PASSWORD_ENCODED=$(urlencode "$COSMOS_PRIMARY_KEY")
 MONGODB_CONNECTION_STRING="mongodb://${COSMOS_USERNAME_ENCODED}:${COSMOS_PASSWORD_ENCODED}@${COSMOS_ACCOUNT_NAME}.mongo.cosmos.azure.com:10255/${COSMOS_DB_NAME}?ssl=true&replicaSet=globaldb&retrywrites=false&maxIdleTimeMS=120000&authMechanism=SCRAM-SHA-256&appName=@${COSMOS_ACCOUNT_NAME}@"
 MONGODB_CONNECTION_STRING_B64=$(printf '%s' "${MONGODB_CONNECTION_STRING}" | base64)
+
+if [[ -f "${HERO_IMAGE_FILE}" ]]; then
+  echo
+  echo "Uploading hero image to Azure Blob Storage..."
+  HERO_IMAGE_UPLOADED=false
+  for attempt in {1..6}; do
+    if az storage blob upload \
+      --account-name "$IMAGE_STORAGE_ACCOUNT_NAME" \
+      --container-name "$IMAGE_BLOB_CONTAINER_NAME" \
+      --name hero.png \
+      --file "$HERO_IMAGE_FILE" \
+      --auth-mode login \
+      --overwrite; then
+      HERO_IMAGE_UPLOADED=true
+      break
+    fi
+
+    echo "Blob upload failed, possibly because RBAC is still propagating (attempt ${attempt}/6)."
+    sleep 20
+  done
+
+  if [[ "$HERO_IMAGE_UPLOADED" != "true" ]]; then
+    echo "Hero image upload failed after multiple attempts."
+    exit 1
+  fi
+else
+  echo
+  echo "Hero image not found at ${HERO_IMAGE_FILE}. Skipping blob upload."
+fi
 
 echo
 echo "Publishing the app..."
@@ -172,7 +220,7 @@ scp "${SSH_OPTIONS[@]}" \
 ssh "${SSH_OPTIONS[@]}" \
   -J "${ADMIN_USERNAME}@${BASTION_PUBLIC_IP}" \
   "${ADMIN_USERNAME}@${APP_PRIVATE_IP}" \
-  "chmod +x /tmp/setup-app-vm.sh && sudo env MONGODB_CONNECTION_STRING_B64='${MONGODB_CONNECTION_STRING_B64}' bash /tmp/setup-app-vm.sh"
+  "chmod +x /tmp/setup-app-vm.sh && sudo env MONGODB_CONNECTION_STRING_B64='${MONGODB_CONNECTION_STRING_B64}' AZURE_BLOB_CONTAINER_URL='${IMAGE_BLOB_CONTAINER_URL}' bash /tmp/setup-app-vm.sh"
 
 echo
 echo "Copying published files to the app VM..."
@@ -205,6 +253,7 @@ echo "Bastion public IP: ${BASTION_PUBLIC_IP}"
 echo "Reverse proxy URL: http://${REVERSE_PROXY_PUBLIC_IP}"
 echo "Reverse proxy private IP: ${PROXY_PRIVATE_IP}"
 echo "App private IP: ${APP_PRIVATE_IP}"
+echo "Image blob container URL: ${IMAGE_BLOB_CONTAINER_URL}"
 echo
 echo "If you need to inspect the app VM again:"
 echo "  ssh -i ${SSH_KEY_PATH} -J ${ADMIN_USERNAME}@${BASTION_PUBLIC_IP} ${ADMIN_USERNAME}@${APP_PRIVATE_IP} '/opt/cloudsoft/verify-cloudsoft.sh'"

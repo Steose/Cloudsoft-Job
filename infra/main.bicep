@@ -33,6 +33,12 @@ param cosmosMongoDbName string = 'appdb'
 @description('Key Vault name. Must be globally unique.')
 param keyVaultName string
 
+@description('Storage account name for public image assets. Must be globally unique, lowercase, 3-24 chars.')
+param imageStorageAccountName string = take(replace('${prefix}images${uniqueString(resourceGroup().id)}', '-', ''), 24)
+
+@description('Blob container name for public image assets.')
+param imageBlobContainerName string = 'images'
+
 @description('Object ID of the signed-in Azure user who should become Key Vault Administrator.')
 param currentUserObjectId string = ''
 
@@ -68,6 +74,11 @@ var appVmName = '${prefix}-app-vm'
 var keyVaultAdminRoleDefinitionId = subscriptionResourceId(
   'Microsoft.Authorization/roleDefinitions',
   '00482a5a-887f-4fb3-b363-3b7fe8e74483'
+)
+
+var storageBlobDataContributorRoleDefinitionId = subscriptionResourceId(
+  'Microsoft.Authorization/roleDefinitions',
+  'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
 )
 
 resource bastionAsg 'Microsoft.Network/applicationSecurityGroups@2024-05-01' = {
@@ -538,6 +549,56 @@ resource keyVaultAdminAssignment 'Microsoft.Authorization/roleAssignments@2022-0
   }
 }
 
+resource imageStorageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  name: imageStorageAccountName
+  location: location
+  sku: {
+    name: 'Standard_LRS'
+  }
+  kind: 'StorageV2'
+  properties: {
+    accessTier: 'Hot'
+    allowBlobPublicAccess: true
+    allowSharedKeyAccess: false
+    defaultToOAuthAuthentication: true
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+  }
+}
+
+resource imageStorageBlobContributorAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(currentUserObjectId)) {
+  name: guid(imageStorageAccount.id, currentUserObjectId, storageBlobDataContributorRoleDefinitionId)
+  scope: imageStorageAccount
+  properties: {
+    principalId: currentUserObjectId
+    roleDefinitionId: storageBlobDataContributorRoleDefinitionId
+    principalType: 'User'
+  }
+}
+
+resource imageBlobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
+  parent: imageStorageAccount
+  name: 'default'
+  properties: {
+    deleteRetentionPolicy: {
+      enabled: true
+      days: 7
+    }
+    containerDeleteRetentionPolicy: {
+      enabled: true
+      days: 7
+    }
+  }
+}
+
+resource imageBlobContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  parent: imageBlobService
+  name: imageBlobContainerName
+  properties: {
+    publicAccess: 'Blob'
+  }
+}
+
 output bastionPublicIp string = bastionPip.properties.ipAddress
 output reverseProxyPublicIp string = proxyPip.properties.ipAddress
 output reverseProxyPrivateIp string = '10.0.1.4'
@@ -549,3 +610,6 @@ output cosmosEndpoint string = cosmosAccount.properties.documentEndpoint
 output keyVaultNameOutput string = keyVault.name
 output keyVaultId string = keyVault.id
 output keyVaultUri string = keyVault.properties.vaultUri
+output imageStorageAccountNameOutput string = imageStorageAccount.name
+output imageBlobContainerNameOutput string = imageBlobContainer.name
+output imageBlobContainerUrl string = 'https://${imageStorageAccount.name}.blob.${az.environment().suffixes.storage}/${imageBlobContainer.name}'

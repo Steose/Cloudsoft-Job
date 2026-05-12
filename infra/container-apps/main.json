@@ -1,0 +1,402 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.42.1.51946",
+      "templateHash": "3336029823066897880"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for all resources."
+      }
+    },
+    "prefix": {
+      "type": "string",
+      "defaultValue": "cloudsoftjob",
+      "metadata": {
+        "description": "Short prefix used for resource names."
+      }
+    },
+    "acrName": {
+      "type": "string",
+      "defaultValue": "[take(replace(format('{0}{1}', parameters('prefix'), uniqueString(resourceGroup().id)), '-', ''), 50)]",
+      "metadata": {
+        "description": "Azure Container Registry name. Must be globally unique, 5-50 lowercase alphanumeric characters."
+      }
+    },
+    "containerAppsEnvironmentName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-cae', parameters('prefix'))]",
+      "metadata": {
+        "description": "Container Apps managed environment name."
+      }
+    },
+    "containerAppName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-web', parameters('prefix'))]",
+      "metadata": {
+        "description": "Container App name."
+      }
+    },
+    "managedIdentityName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-aca-pull', parameters('prefix'))]",
+      "metadata": {
+        "description": "User-assigned managed identity name used by the Container App to pull from ACR."
+      }
+    },
+    "logAnalyticsWorkspaceName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-logs', parameters('prefix'))]",
+      "metadata": {
+        "description": "Log Analytics workspace name."
+      }
+    },
+    "imageRepository": {
+      "type": "string",
+      "defaultValue": "cloudsoft-job",
+      "metadata": {
+        "description": "Container image repository name inside ACR."
+      }
+    },
+    "imageTag": {
+      "type": "string",
+      "defaultValue": "latest",
+      "metadata": {
+        "description": "Container image tag to deploy."
+      }
+    },
+    "containerPort": {
+      "type": "int",
+      "defaultValue": 8080,
+      "metadata": {
+        "description": "Container port exposed by the ASP.NET Core app."
+      }
+    },
+    "minReplicas": {
+      "type": "int",
+      "defaultValue": 0,
+      "metadata": {
+        "description": "Minimum number of app replicas."
+      }
+    },
+    "maxReplicas": {
+      "type": "int",
+      "defaultValue": 2,
+      "metadata": {
+        "description": "Maximum number of app replicas."
+      }
+    },
+    "cpu": {
+      "type": "string",
+      "defaultValue": "0.5",
+      "metadata": {
+        "description": "CPU cores per replica."
+      }
+    },
+    "memory": {
+      "type": "string",
+      "defaultValue": "1Gi",
+      "metadata": {
+        "description": "Memory per replica."
+      }
+    },
+    "mongoDbConnectionString": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional MongoDB connection string. Leave empty to use in-memory storage."
+      }
+    },
+    "mongoDbDatabaseName": {
+      "type": "string",
+      "defaultValue": "Cloudsoft",
+      "metadata": {
+        "description": "MongoDB database name."
+      }
+    },
+    "mongoDbJobPostingsCollectionName": {
+      "type": "string",
+      "defaultValue": "jobPostings",
+      "metadata": {
+        "description": "MongoDB job postings collection name."
+      }
+    },
+    "mongoDbEmployersCollectionName": {
+      "type": "string",
+      "defaultValue": "employers",
+      "metadata": {
+        "description": "MongoDB employers collection name."
+      }
+    },
+    "useMongoDb": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Enable MongoDB repositories when a connection string is supplied."
+      }
+    },
+    "useAzureKeyVault": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Enable Azure Key Vault configuration loading inside the app."
+      }
+    },
+    "keyVaultUri": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Key Vault URI used by the app when Azure Key Vault is enabled."
+      }
+    },
+    "useAzureStorage": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Enable Azure Blob image URLs inside the web app."
+      }
+    },
+    "azureBlobContainerUrl": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Azure Blob container URL used by the app when Azure Storage is enabled."
+      }
+    },
+    "storageAccountName": {
+      "type": "string",
+      "defaultValue": "[take(replace(format('{0}st{1}', parameters('prefix'), uniqueString(resourceGroup().id)), '-', ''), 24)]",
+      "metadata": {
+        "description": "Azure Storage account name for public image assets. Must be globally unique, 3-24 lowercase letters and numbers."
+      }
+    },
+    "imageBlobContainerName": {
+      "type": "string",
+      "defaultValue": "images",
+      "metadata": {
+        "description": "Blob container name for public image assets."
+      }
+    }
+  },
+  "variables": {
+    "acrPullRoleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+    "generatedAzureBlobContainerUrl": "[format('https://{0}.blob.{1}/{2}', parameters('storageAccountName'), environment().suffixes.storage, parameters('imageBlobContainerName'))]",
+    "effectiveAzureBlobContainerUrl": "[if(not(empty(parameters('azureBlobContainerUrl'))), parameters('azureBlobContainerUrl'), if(parameters('useAzureStorage'), variables('generatedAzureBlobContainerUrl'), ''))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.ContainerRegistry/registries",
+      "apiVersion": "2023-11-01-preview",
+      "name": "[parameters('acrName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Basic"
+      },
+      "properties": {
+        "adminUserEnabled": false,
+        "publicNetworkAccess": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[parameters('managedIdentityName')]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+      "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName')), variables('acrPullRoleDefinitionId'))]",
+      "properties": {
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName')), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal",
+        "roleDefinitionId": "[variables('acrPullRoleDefinitionId')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2023-09-01",
+      "name": "[parameters('logAnalyticsWorkspaceName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": 30
+      }
+    },
+    {
+      "condition": "[parameters('useAzureStorage')]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-05-01",
+      "name": "[parameters('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "accessTier": "Hot",
+        "allowBlobPublicAccess": true,
+        "allowSharedKeyAccess": false,
+        "defaultToOAuthAuthentication": true,
+        "minimumTlsVersion": "TLS1_2",
+        "supportsHttpsTrafficOnly": true
+      }
+    },
+    {
+      "condition": "[parameters('useAzureStorage')]",
+      "type": "Microsoft.Storage/storageAccounts/blobServices",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}', parameters('storageAccountName'), 'default')]",
+      "properties": {
+        "deleteRetentionPolicy": {
+          "enabled": true,
+          "days": 7
+        },
+        "containerDeleteRetentionPolicy": {
+          "enabled": true,
+          "days": 7
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+      ]
+    },
+    {
+      "condition": "[parameters('useAzureStorage')]",
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}/{2}', parameters('storageAccountName'), 'default', parameters('imageBlobContainerName'))]",
+      "properties": {
+        "publicAccess": "Blob"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('storageAccountName'), 'default')]"
+      ]
+    },
+    {
+      "type": "Microsoft.App/managedEnvironments",
+      "apiVersion": "2024-03-01",
+      "name": "[parameters('containerAppsEnvironmentName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "appLogsConfiguration": {
+          "destination": "log-analytics",
+          "logAnalyticsConfiguration": {
+            "customerId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName')), '2023-09-01').customerId]",
+            "sharedKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName')), '2023-09-01').primarySharedKey]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.App/containerApps",
+      "apiVersion": "2024-03-01",
+      "name": "[parameters('containerAppName')]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName')))]": {}
+        }
+      },
+      "properties": {
+        "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', parameters('containerAppsEnvironmentName'))]",
+        "configuration": {
+          "activeRevisionsMode": "Single",
+          "ingress": {
+            "external": true,
+            "targetPort": "[parameters('containerPort')]",
+            "transport": "auto",
+            "allowInsecure": false
+          },
+          "registries": [
+            {
+              "server": "[reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-11-01-preview').loginServer]",
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]"
+            }
+          ],
+          "secrets": "[if(empty(parameters('mongoDbConnectionString')), createArray(), createArray(createObject('name', 'mongodb-connection-string', 'value', parameters('mongoDbConnectionString'))))]"
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "cloudsoft-web",
+              "image": "[format('{0}/{1}:{2}', reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-11-01-preview').loginServer, parameters('imageRepository'), parameters('imageTag'))]",
+              "env": "[concat(createArray(createObject('name', 'ASPNETCORE_URLS', 'value', format('http://+:{0}', parameters('containerPort'))), createObject('name', 'ASPNETCORE_ENVIRONMENT', 'value', 'Production'), createObject('name', 'FeatureFlags__UseMongoDb', 'value', string(parameters('useMongoDb'))), createObject('name', 'FeatureFlags__UseAzureKeyVault', 'value', string(parameters('useAzureKeyVault'))), createObject('name', 'FeatureFlags__UseAzureStorage', 'value', string(parameters('useAzureStorage'))), createObject('name', 'MongoDb__DatabaseName', 'value', parameters('mongoDbDatabaseName')), createObject('name', 'MongoDb__JobPostingsCollectionName', 'value', parameters('mongoDbJobPostingsCollectionName')), createObject('name', 'MongoDb__EmployersCollectionName', 'value', parameters('mongoDbEmployersCollectionName')), createObject('name', 'KeyVault__VaultUri', 'value', parameters('keyVaultUri')), createObject('name', 'AzureBlob__ContainerUrl', 'value', variables('effectiveAzureBlobContainerUrl'))), if(empty(parameters('mongoDbConnectionString')), createArray(), createArray(createObject('name', 'MongoDb__ConnectionString', 'secretRef', 'mongodb-connection-string'))))]",
+              "resources": {
+                "cpu": "[json(parameters('cpu'))]",
+                "memory": "[parameters('memory')]"
+              }
+            }
+          ],
+          "scale": {
+            "minReplicas": "[parameters('minReplicas')]",
+            "maxReplicas": "[parameters('maxReplicas')]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+        "[extensionResourceId(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName')), variables('acrPullRoleDefinitionId')))]",
+        "[resourceId('Microsoft.App/managedEnvironments', parameters('containerAppsEnvironmentName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "acrName": {
+      "type": "string",
+      "value": "[parameters('acrName')]"
+    },
+    "acrLoginServer": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-11-01-preview').loginServer]"
+    },
+    "containerAppName": {
+      "type": "string",
+      "value": "[parameters('containerAppName')]"
+    },
+    "containerAppFqdn": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.App/containerApps', parameters('containerAppName')), '2024-03-01').configuration.ingress.fqdn]"
+    },
+    "containerAppUrl": {
+      "type": "string",
+      "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', parameters('containerAppName')), '2024-03-01').configuration.ingress.fqdn)]"
+    },
+    "managedEnvironmentName": {
+      "type": "string",
+      "value": "[parameters('containerAppsEnvironmentName')]"
+    },
+    "imageStorageAccountName": {
+      "type": "string",
+      "value": "[if(parameters('useAzureStorage'), parameters('storageAccountName'), '')]"
+    },
+    "imageBlobContainerName": {
+      "type": "string",
+      "value": "[if(parameters('useAzureStorage'), parameters('imageBlobContainerName'), '')]"
+    },
+    "imageBlobContainerUrl": {
+      "type": "string",
+      "value": "[variables('effectiveAzureBlobContainerUrl')]"
+    }
+  }
+}

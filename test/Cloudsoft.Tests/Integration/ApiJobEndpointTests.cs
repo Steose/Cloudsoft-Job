@@ -13,7 +13,7 @@ public class ApiJobEndpointTests
         var client = factory.CreateClient();
         var job = CreateJob("api-all");
 
-        var createResponse = await client.PostAsJsonAsync("/api/jobs", job);
+        var createResponse = await PostJobAsync(client, job);
         var jobs = await client.GetFromJsonAsync<List<JobPosting>>("/api/jobs");
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
@@ -29,8 +29,8 @@ public class ApiJobEndpointTests
         var active = CreateJob("api-active", isActive: true);
         var inactive = CreateJob("api-inactive", isActive: false);
 
-        await client.PostAsJsonAsync("/api/jobs", active);
-        await client.PostAsJsonAsync("/api/jobs", inactive);
+        await PostJobAsync(client, active);
+        await PostJobAsync(client, inactive);
         var jobs = await client.GetFromJsonAsync<List<JobPosting>>("/api/jobs/active");
 
         Assert.NotNull(jobs);
@@ -45,7 +45,7 @@ public class ApiJobEndpointTests
         var client = factory.CreateClient();
         var job = CreateJob("api-details");
 
-        await client.PostAsJsonAsync("/api/jobs", job);
+        await PostJobAsync(client, job);
         var found = await client.GetFromJsonAsync<JobPosting>($"/api/jobs/{job.Id}");
 
         Assert.NotNull(found);
@@ -73,7 +73,7 @@ public class ApiJobEndpointTests
         var client = factory.CreateClient();
         var job = CreateJob("api-created");
 
-        var response = await client.PostAsJsonAsync("/api/jobs", job);
+        var response = await PostJobAsync(client, job);
         var created = await response.Content.ReadFromJsonAsync<JobPosting>();
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -81,6 +81,31 @@ public class ApiJobEndpointTests
         Assert.Contains($"/api/jobs/{job.Id}", response.Headers.Location.ToString());
         Assert.NotNull(created);
         Assert.Equal(job.Id, created.Id);
+    }
+
+    [Fact]
+    public async Task CreateJob_ReturnsUnauthorizedWithoutApiKey()
+    {
+        await using var factory = new CloudsoftApiFactory();
+        var client = factory.CreateClient();
+        var job = CreateJob("api-no-key");
+
+        var response = await client.PostAsJsonAsync("/api/jobs", job);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateJob_ReturnsUnauthorizedWithInvalidApiKey()
+    {
+        await using var factory = new CloudsoftApiFactory();
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-API-Key", "wrong-key");
+        var job = CreateJob("api-wrong-key");
+
+        var response = await client.PostAsJsonAsync("/api/jobs", job);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     private static JobPosting CreateJob(string id, bool isActive = true)
@@ -95,5 +120,16 @@ public class ApiJobEndpointTests
             Deadline = DateTime.UtcNow.AddDays(30),
             IsActive = isActive
         };
+    }
+
+    private static async Task<HttpResponseMessage> PostJobAsync(HttpClient client, JobPosting job)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/jobs")
+        {
+            Content = JsonContent.Create(job)
+        };
+        request.Headers.Add("X-API-Key", "test-api-write-key");
+
+        return await client.SendAsync(request);
     }
 }

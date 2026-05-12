@@ -46,15 +46,23 @@ if ! command -v dotnet >/dev/null 2>&1; then
 fi
 
 MONGODB_CONNECTION_STRING="$(printf '%s' "${MONGODB_CONNECTION_STRING_B64}" | base64 -d)"
+AZURE_BLOB_CONTAINER_URL="${AZURE_BLOB_CONTAINER_URL:-}"
+USE_AZURE_STORAGE="false"
+
+if [[ -n "${AZURE_BLOB_CONTAINER_URL}" ]]; then
+  USE_AZURE_STORAGE="true"
+fi
 
 cat > "${ENV_FILE}" <<EOF
 ASPNETCORE_URLS=http://0.0.0.0:8080
 ASPNETCORE_ENVIRONMENT=Production
 FeatureFlags__UseMongoDb=true
+FeatureFlags__UseAzureStorage=${USE_AZURE_STORAGE}
 MongoDb__ConnectionString=${MONGODB_CONNECTION_STRING}
 MongoDb__DatabaseName=Cloudsoft
 MongoDb__JobPostingsCollectionName=jobPostings
 MongoDb__EmployersCollectionName=employers
+AzureBlob__ContainerUrl=${AZURE_BLOB_CONTAINER_URL}
 DOTNET_ROOT=${DOTNET_INSTALL_DIR}
 PATH=${DOTNET_INSTALL_DIR}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 EOF

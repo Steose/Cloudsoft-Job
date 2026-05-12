@@ -1,5 +1,6 @@
 using Cloudsoft.Core.Models;
 using Cloudsoft.Core.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Cloudsoft.Api.Controllers;
@@ -35,6 +36,7 @@ public class JobsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize]
     public async Task<ActionResult<JobPosting>> Create(JobPosting jobPosting)
     {
         var createdJobPosting = await _jobPostingService.CreateAsync(jobPosting);
