@@ -46,6 +46,7 @@ if ! command -v dotnet >/dev/null 2>&1; then
 fi
 
 MONGODB_CONNECTION_STRING="$(printf '%s' "${MONGODB_CONNECTION_STRING_B64}" | base64 -d)"
+MONGODB_DATABASE_NAME="${MONGODB_DATABASE_NAME:-Cloudsoft}"
 AZURE_BLOB_CONTAINER_URL="${AZURE_BLOB_CONTAINER_URL:-}"
 USE_AZURE_STORAGE="false"
 
@@ -57,9 +58,10 @@ cat > "${ENV_FILE}" <<EOF
 ASPNETCORE_URLS=http://0.0.0.0:8080
 ASPNETCORE_ENVIRONMENT=Production
 FeatureFlags__UseMongoDb=true
+FeatureFlags__UseAzureKeyVault=false
 FeatureFlags__UseAzureStorage=${USE_AZURE_STORAGE}
 MongoDb__ConnectionString=${MONGODB_CONNECTION_STRING}
-MongoDb__DatabaseName=Cloudsoft
+MongoDb__DatabaseName=${MONGODB_DATABASE_NAME}
 MongoDb__JobPostingsCollectionName=jobPostings
 MongoDb__EmployersCollectionName=employers
 AzureBlob__ContainerUrl=${AZURE_BLOB_CONTAINER_URL}

@@ -23,18 +23,24 @@ public class MongoJobPostingRepository : IJobPostingRepository
 
     public async Task<IReadOnlyCollection<JobPosting>> GetAllAsync()
     {
-        return await _jobPostings
+        var jobPostings = await _jobPostings
             .Find(_ => true)
-            .SortByDescending(jobPosting => jobPosting.CreatedAtUtc)
             .ToListAsync();
+
+        return jobPostings
+            .OrderByDescending(jobPosting => jobPosting.CreatedAtUtc)
+            .ToList();
     }
 
     public async Task<IReadOnlyCollection<JobPosting>> GetActiveAsync()
     {
-        return await _jobPostings
+        var jobPostings = await _jobPostings
             .Find(jobPosting => jobPosting.IsActive)
-            .SortByDescending(jobPosting => jobPosting.CreatedAtUtc)
             .ToListAsync();
+
+        return jobPostings
+            .OrderByDescending(jobPosting => jobPosting.CreatedAtUtc)
+            .ToList();
     }
 
     public async Task<JobPosting?> GetByIdAsync(string id)

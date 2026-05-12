@@ -10,7 +10,38 @@ using Cloudsoft.Core.Storage;
 using Cloudsoft.Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateEmptyBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = ResolveContentRoot(),
+    EnvironmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? Environments.Production,
+    WebRootPath = "wwwroot"
+});
+
+builder.Configuration
+    .SetBasePath(builder.Environment.ContentRootPath)
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: false)
+    .AddEnvironmentVariables();
+
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>(optional: true);
+}
+
+if (args.Length > 0)
+{
+    builder.Configuration.AddCommandLine(args);
+}
+
+builder.Logging.AddConsole();
+builder.WebHost.UseKestrel();
+
+var configuredUrls = builder.Configuration["urls"] ?? builder.Configuration["ASPNETCORE_URLS"];
+if (!string.IsNullOrWhiteSpace(configuredUrls))
+{
+    builder.WebHost.UseUrls(configuredUrls);
+}
 
 //ConfigureKeyVault(builder);
 
@@ -116,20 +147,18 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Home/Error");
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
+    app.UseHttpsRedirection();
 }
 
-app.UseHttpsRedirection();
+app.UseStaticFiles();
 app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapStaticAssets();
-
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}")
-    .WithStaticAssets();
+    pattern: "{controller=Home}/{action=Index}/{id?}");
 
 
 app.Run();
@@ -182,4 +211,23 @@ static bool HasValidMongoConfiguration(ConfigurationManager configuration)
         && !string.IsNullOrWhiteSpace(options.DatabaseName)
         && !string.IsNullOrWhiteSpace(options.JobPostingsCollectionName)
         && !string.IsNullOrWhiteSpace(options.EmployersCollectionName);
+}
+
+static string ResolveContentRoot()
+{
+    var currentDirectory = Directory.GetCurrentDirectory();
+    if (Directory.Exists(Path.Combine(currentDirectory, "Views"))
+        && Directory.Exists(Path.Combine(currentDirectory, "wwwroot")))
+    {
+        return currentDirectory;
+    }
+
+    var webProjectDirectory = Path.Combine(currentDirectory, "src", "Cloudsoft.Web");
+    if (Directory.Exists(Path.Combine(webProjectDirectory, "Views"))
+        && Directory.Exists(Path.Combine(webProjectDirectory, "wwwroot")))
+    {
+        return webProjectDirectory;
+    }
+
+    return currentDirectory;
 }

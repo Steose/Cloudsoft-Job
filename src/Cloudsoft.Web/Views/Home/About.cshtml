@@ -1,6 +1,6 @@
 @{
     ViewData["Title"] = "About";
-    var heroImageUrl = ViewData["HeroImageUrl"] as string;
+    var heroImageUrl = ViewData["HeroImageUrl"] as string ?? Url.Content("~/images/hero.png");
 }
 
 <div class="hero-section" style="background-image: url('@heroImageUrl')">

@@ -1,12 +1,15 @@
 ﻿@{
     ViewData["Title"] = "Home Page";
-    var heroImageUrl = ViewData["HeroImageUrl"] as string;
+    var heroImageUrl = ViewData["HeroImageUrl"] as string ?? Url.Content("~/images/hero.png");
+    var jobsUrl = Url.Action("Index", "Jobs") ?? "/Job";
+    var createJobUrl = Url.Action("Create", "Jobs") ?? "/Job/Create";
+    var registerUrl = Url.Action("Register", "Account", new { returnUrl = createJobUrl }) ?? "/Account/Register";
 }
 
 
 <div class="container-fluid px-0">
     <!-- Hero Section -->
-    <div class="hero-section text-white" style="background-image: linear-gradient(rgba(0,0,0,.55), rgba(0,0,0,.55)), url('@heroImageUrl');">
+    <div class="hero-gradient text-white py-5">
         <div class="container py-5">
             <div class="row align-items-center g-5">
                 <div class="col-lg-6 mx-auto text-center">
@@ -15,12 +18,10 @@
                         Find your next career opportunity and discover top notch companies. Browse open positions and apply today.
                     </p>
                     <div class="d-grid gap-2 d-md-flex justify-content-center">
-                        <a asp-controller="Jobs" asp-action="Index"
-                           class="btn btn-light btn-lg px-4 shadow">
+                        <a href="@jobsUrl" class="btn btn-light btn-lg px-4 shadow">
                             <i class="fas fa-briefcase me-2"></i>Browse Jobs
                         </a>
-                        <a asp-controller="Account" asp-action="Register" asp-route-returnUrl="/Job/Create"
-                           class="btn btn-outline-light btn-lg px-4 shadow">
+                        <a href="@registerUrl" class="btn btn-outline-light btn-lg px-4 shadow">
                             <i class="fas fa-cogs me-2"></i>Register as Employer
                         </a>
                     </div>

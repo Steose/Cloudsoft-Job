@@ -13,8 +13,18 @@ public class AzureBlobImageService : IImageService
     }
     public string GetImageUrl(string imageName)
     {
-        var containerUrl = _blobContainerUrl.TrimEnd('/');
         var imagePath = imageName.TrimStart('/');
+
+        if (string.IsNullOrWhiteSpace(_blobContainerUrl))
+        {
+            return $"/{imagePath}";
+        }
+
+        var containerUrl = _blobContainerUrl.TrimEnd('/');
+        if (imagePath.StartsWith("images/", StringComparison.OrdinalIgnoreCase))
+        {
+            imagePath = imagePath["images/".Length..];
+        }
 
         return $"{containerUrl}/{imagePath}";
     }

@@ -1,4 +1,4 @@
-# Infra folder
+# vm-deploy folder
 
 This folder contains the Azure infrastructure and deployment scripts for the Cloudsoft app.
 

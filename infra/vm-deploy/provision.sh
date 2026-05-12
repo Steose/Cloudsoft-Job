@@ -4,7 +4,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 TEMPLATE_FILE="${SCRIPT_DIR}/main.bicep"
 PARAMETERS_FILE="${SCRIPT_DIR}/main.bicepparam"
 WEB_PROJECT_FILE="${REPO_ROOT}/src/Cloudsoft.Web/Cloudsoft.Web.csproj"
@@ -220,7 +220,7 @@ scp "${SSH_OPTIONS[@]}" \
 ssh "${SSH_OPTIONS[@]}" \
   -J "${ADMIN_USERNAME}@${BASTION_PUBLIC_IP}" \
   "${ADMIN_USERNAME}@${APP_PRIVATE_IP}" \
-  "chmod +x /tmp/setup-app-vm.sh && sudo env MONGODB_CONNECTION_STRING_B64='${MONGODB_CONNECTION_STRING_B64}' AZURE_BLOB_CONTAINER_URL='${IMAGE_BLOB_CONTAINER_URL}' bash /tmp/setup-app-vm.sh"
+  "chmod +x /tmp/setup-app-vm.sh && sudo env MONGODB_CONNECTION_STRING_B64='${MONGODB_CONNECTION_STRING_B64}' MONGODB_DATABASE_NAME='${COSMOS_DB_NAME}' AZURE_BLOB_CONTAINER_URL='${IMAGE_BLOB_CONTAINER_URL}' bash /tmp/setup-app-vm.sh"
 
 echo
 echo "Copying published files to the app VM..."
