@@ -491,3 +491,75 @@ User Access Administrator
 `User Access Administrator` lets GitHub Actions create the `AcrPull` role assignment required by the Container App.
 
 This is safer than assigning full `Owner` because it grants only role-assignment permission at the resource group scope.
+
+## Troubleshooting: DeploymentActive Error
+
+You may see this error during `az deployment group create`:
+
+```text
+DeploymentActive
+The deployment ... cannot be saved, because this would overwrite an existing deployment which is still active.
+```
+
+This means an earlier Azure deployment with the same name is still running or stuck.
+
+In this workflow, the Bicep deployment name is:
+
+```text
+main
+```
+
+Azure will not start another deployment named `main` while the previous `main` deployment is still active.
+
+### Fix Steps
+
+1. Check the deployment status:
+
+```bash
+az deployment group show \
+  --resource-group cloudsoft-job-aca-rg \
+  --name main \
+  --query "{name:name, state:properties.provisioningState, timestamp:properties.timestamp, correlationId:properties.correlationId}" \
+  -o json
+```
+
+2. If the state is `Running` and it is stuck, cancel it:
+
+```bash
+az deployment group cancel \
+  --resource-group cloudsoft-job-aca-rg \
+  --name main
+```
+
+3. Confirm it is canceled:
+
+```bash
+az deployment group show \
+  --resource-group cloudsoft-job-aca-rg \
+  --name main \
+  --query "properties.provisioningState" \
+  -o tsv
+```
+
+Expected result:
+
+```text
+Canceled
+```
+
+4. Re-run the GitHub Actions workflow.
+
+### Optional Prevention
+
+Use a unique deployment name in the workflow so two runs do not conflict.
+
+Example:
+
+```bash
+az deployment group create \
+  --name "main-${{ github.run_id }}" \
+  --resource-group "$AZURE_RESOURCE_GROUP" \
+  --template-file infra/container-apps/main.bicep
+```
+
+This avoids name conflicts, but keeping the name `main` is also fine if old stuck deployments are canceled before retrying.
