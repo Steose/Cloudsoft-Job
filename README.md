@@ -1,226 +1,604 @@
 # Cloudsoft Job
 
-ASP.NET Core MVC job portal.
+Cloudsoft Job is an ASP.NET Core job portal for browsing jobs and allowing employers to register, sign in, and post job listings.
 
-## Azure VM Deployment
+The solution includes:
 
-### What `./infra/provision.sh` does
+- `Cloudsoft.Web`: MVC web application.
+- `Cloudsoft.Api`: API project.
+- `Cloudsoft.Core`: shared models, services, repositories, and storage helpers.
+- `test/Cloudsoft.Tests`: xUnit tests.
+- `docker/`: local container setup.
+- `infra/vm-deploy/`: Azure VM deployment.
+- `infra/container-apps/`: Azure Container Apps deployment.
+- `.github/workflows/ci-cd.yml`: GitHub Actions build, test, and deploy workflow.
 
-Running `./infra/provision.sh` now performs the full deployment flow:
+## Prerequisites
 
-1. Creates or updates the Azure resource group.
-2. Deploys the Bicep infrastructure in `infra/main.bicep`.
-3. Builds the Mongo connection string from the deployed Cosmos DB account.
-4. Publishes `src/Cloudsoft.Web/Cloudsoft.Web.csproj`.
-5. Waits for SSH on the bastion, proxy VM, and app VM.
-6. Configures the proxy VM over SSH.
-7. Configures the app VM over SSH.
-8. Copies the published app to `/opt/cloudsoft` on the app VM.
-9. Reloads `systemd` and starts Cloudsoft on the app VM.
-10. Verifies the app locally on the app VM.
-11. Verifies the reverse proxy publicly.
+Install these tools for local development:
 
-### Prerequisites
+- .NET SDK 10
+- Docker Desktop, if using Docker Compose
+- Azure CLI, if deploying to Azure
+- Git
 
-- Azure CLI installed and authenticated with `az login`
-- Access to the subscription used by the deployment
-- A private SSH key that matches the public key in `infra/main.bicepparam`
-- By default the script expects the private key at `~/.ssh/id_ed25519`
-- Python 3 available locally for URL-encoding the Cosmos DB credentials
-- Ubuntu 22.04 app VMs install .NET 10 from the Ubuntu `dotnet/backports` feed if it is not already available in apt
-- If apt still does not provide a working `dotnet` executable, the app VM setup falls back to the official `dotnet-install.sh` runtime installer
+Check .NET:
 
-If your private key is somewhere else:
+```bash
+dotnet --info
+```
+
+Check Azure login:
+
+```bash
+az account show
+```
+
+If Azure CLI is not logged in:
+
+```bash
+az login
+```
+
+## Project Structure
+
+```text
+Cloudsoft-job/
+├── src/
+│   ├── Cloudsoft.Web/
+│   ├── Cloudsoft.Api/
+│   └── Cloudsoft.Core/
+├── test/
+│   └── Cloudsoft.Tests/
+├── docker/
+│   ├── Dockerfile
+│   └── docker-compose.yml
+├── infra/
+│   ├── vm-deploy/
+│   └── container-apps/
+├── docs/
+└── .github/workflows/ci-cd.yml
+```
+
+## Local Setup With .NET
+
+Use this when you want to run the app directly on your machine.
+
+### 1. Restore Packages
+
+From the repository root:
+
+```bash
+dotnet restore Cloudsoft.sln
+```
+
+### 2. Build The Solution
+
+```bash
+dotnet build Cloudsoft.sln --no-restore
+```
+
+### 3. Run Tests
+
+```bash
+dotnet test Cloudsoft.sln --no-build --no-restore
+```
+
+### 4. Run The Web App
+
+```bash
+dotnet run --project src/Cloudsoft.Web/Cloudsoft.Web.csproj
+```
+
+The local app normally runs at:
+
+```text
+http://localhost:5154
+```
+
+Important pages:
+
+```text
+http://localhost:5154/
+http://localhost:5154/Home/About
+http://localhost:5154/Job
+http://localhost:5154/Account/Login
+http://localhost:5154/Account/Register
+```
+
+## Local Configuration
+
+Local settings are in:
+
+```text
+src/Cloudsoft.Web/appsettings.Development.json
+```
+
+Important local flags:
+
+```json
+"FeatureFlags": {
+  "UseMongoDb": true,
+  "UseAzureKeyVault": false,
+  "UseAzureStorage": false
+}
+```
+
+Meaning:
+
+- `UseMongoDb=true`: the app tries MongoDB first.
+- `UseAzureKeyVault=false`: local development does not load secrets from Azure Key Vault.
+- `UseAzureStorage=false`: local development uses `wwwroot/images/hero.png`.
+
+The local MongoDB connection is:
+
+```json
+"MongoDb": {
+  "ConnectionString": "mongodb://localhost:27017/?serverSelectionTimeoutMS=2000&connectTimeoutMS=2000",
+  "DatabaseName": "Cloudsoft"
+}
+```
+
+If MongoDB is not running, the app falls back to in-memory storage.
+
+## Local Setup With Docker Compose
+
+Use this when you want the app, MongoDB, and Mongo Express to run in containers.
+
+### 1. Start Containers
+
+```bash
+docker compose -f docker/docker-compose.yml up --build
+```
+
+### 2. Open The App
+
+```text
+http://localhost:8080
+```
+
+### 3. Open Mongo Express
+
+```text
+http://localhost:8081
+```
+
+### 4. Stop Containers
+
+```bash
+docker compose -f docker/docker-compose.yml down
+```
+
+## User Secrets For Local MongoDB
+
+Use user secrets if you want to keep a real MongoDB connection string out of source code.
+
+Run this from the web project folder:
+
+```bash
+cd src/Cloudsoft.Web
+dotnet user-secrets set "MongoDb:ConnectionString" "<your-mongodb-connection-string>"
+```
+
+Then run the app:
+
+```bash
+dotnet run
+```
+
+## Azure Production Option 1: VM Deployment
+
+Use this option when deploying to Azure VMs with:
+
+- Bastion VM for SSH access
+- Proxy VM with Nginx
+- Private App VM running ASP.NET Core
+- Cosmos DB Mongo
+- Azure Blob Storage for `hero.png`
+
+The VM deployment files are in:
+
+```text
+infra/vm-deploy/
+```
+
+### VM Deployment Files
+
+- `main.bicep`: creates the Azure infrastructure.
+- `main.bicepparam`: provides deployment parameter values.
+- `provision.sh`: full deployment script.
+- `setup-proxy-vm.sh`: installs and configures Nginx.
+- `setup-app-vm.sh`: installs .NET, writes environment variables, creates systemd service, and starts the app.
+
+### VM Deployment Prerequisites
+
+You need:
+
+- Azure CLI logged in.
+- Permission to create Azure resources.
+- SSH private key matching the public key in `infra/vm-deploy/main.bicepparam`.
+- .NET SDK 10 installed locally.
+- Python 3 available locally.
+
+By default, the script expects:
+
+```text
+~/.ssh/id_ed25519
+```
+
+If your key is somewhere else:
 
 ```bash
 export SSH_PRIVATE_KEY_PATH=~/.ssh/your-key
 ```
 
-## Run From The Repository Root
+### Run Full VM Deployment
 
-### Provision infrastructure and deploy the app:
-
-```bash
-./infra/provision.sh
-```
-
-The script prints the bastion IP, reverse proxy public URL, reverse proxy private IP, and app private IP after deployment.
-It also disables strict SSH host key checking for its own automation so repeated redeployments do not fail on reused VM IPs.
-
-### Production Configuration
-
-The app now supports two production-safe configuration controls:
-
-- `FeatureFlags:UseMongoDb`
-  - when `false`, the app uses in-memory repositories
-  - when `true`, the app only uses MongoDb if the Mongo settings are actually present
-  - if the Mongo flag is on but configuration is missing, the app falls back to in-memory instead of crashing
-  - if MongoDb is configured but runtime operations still fail, the repository layer now falls back to in-memory storage and logs the error
-- `FeatureFlags:UseAzureKeyVault`
-  - when `true`, the app tries to load configuration from Azure Key Vault before wiring repositories
-  - if Key Vault is enabled but unavailable, the app logs the problem and continues without it
-
-Key Vault settings:
-
-```json
-"KeyVault": {
-  "VaultUri": "https://<your-vault-name>.vault.azure.net/",
-  "ManagedIdentityClientId": ""
-}
-```
-
-Key Vault secret names should use `--` for hierarchy. For example:
-
-- `MongoDb--ConnectionString`
-- `MongoDb--DatabaseName`
-- `MongoDb--JobPostingsCollectionName`
-- `MongoDb--EmployersCollectionName`
-
-For Azure-hosted production, prefer:
-
-- `FeatureFlags__UseMongoDb=true`
-- `FeatureFlags__UseAzureKeyVault=true`
-- `KeyVault__VaultUri=https://<your-vault-name>.vault.azure.net/`
-
-The app uses `DefaultAzureCredential`, so a managed identity is the preferred production authentication path.
-
-### Manual Recovery Or Verification
-
-If you need to inspect the app VM after deployment, use the bastion host as a jump host:
+From the repository root:
 
 ```bash
-ssh -i ~/.ssh/id_ed25519 -J azureuser@<bastion-public-ip> azureuser@<app-private-ip> '/opt/cloudsoft/verify-cloudsoft.sh'
+cd infra/vm-deploy
+./provision.sh
 ```
 
-Check the reverse proxy manually:
+The script does the full flow:
 
-```bash
-curl http://<reverse-proxy-public-ip>
-```
+1. Creates or updates the Azure resource group.
+2. Deploys `main.bicep`.
+3. Reads Azure deployment outputs.
+4. Builds the Cosmos MongoDB connection string.
+5. Uploads `src/Cloudsoft.Web/wwwroot/images/hero.png` to Azure Blob Storage.
+6. Publishes `Cloudsoft.Web`.
+7. Connects to the private VMs through the Bastion VM.
+8. Configures the Proxy VM with Nginx.
+9. Configures the App VM with .NET, environment variables, and systemd.
+10. Copies the published app to `/opt/cloudsoft`.
+11. Restarts the `cloudsoft-web` service.
+12. Verifies the app and public reverse proxy.
 
-If Nginx returns `502 Bad Gateway`, test the upstream from the proxy VM:
-
-```bash
-ssh -i ~/.ssh/id_ed25519 -J azureuser@<bastion-public-ip> azureuser@<reverse-proxy-private-ip> 'curl -i --max-time 10 http://10.0.2.4:8080 && sudo systemctl status nginx --no-pager'
-```
-
-### Why Existing Resource Groups Can Be Reused Now
-
-The VM configuration is no longer pushed through Azure VM `customData`.
-That avoids the Azure error:
+### VM Production Request Flow
 
 ```text
-PropertyChangeNotAllowed: Changing property 'osProfile.customData' is not allowed.
+Browser
+-> Proxy VM public IP
+-> Nginx on Proxy VM
+-> App VM private IP on port 8080
+-> Cloudsoft.Web
+-> Cosmos DB Mongo and Azure Blob Storage
 ```
 
-Instead, `./infra/provision.sh` applies the proxy and app VM configuration over SSH every time it runs.
+### Verify VM Production
 
-### VM Configuration Files
+The script prints the reverse proxy URL at the end.
 
-The repo includes:
+Open:
 
-- [setup-app-vm.sh](/Users/stephenucheosedumme/Cloudsoft-job/infra/setup-app-vm.sh)
-- [setup-proxy-vm.sh](/Users/stephenucheosedumme/Cloudsoft-job/infra/setup-proxy-vm.sh)
+```text
+http://<reverse-proxy-public-ip>
+http://<reverse-proxy-public-ip>/Home/About
+http://<reverse-proxy-public-ip>/Job
+```
 
-These are the scripts `./infra/provision.sh` copies and executes remotely.
+Check the app VM through the bastion:
 
-### App VM Configuration Reference
+```bash
+ssh -i ~/.ssh/id_ed25519 \
+  -J azureuser@<bastion-public-ip> \
+  azureuser@<app-private-ip> \
+  '/opt/cloudsoft/verify-cloudsoft.sh'
+```
 
-The app VM configuration template in [cloud-init-dotnet-app.yaml](/Users/stephenucheosedumme/Cloudsoft-job/infra/cloud-init-dotnet-app.yaml) mirrors the same setup applied by `setup-app-vm.sh`:
+Check app logs:
 
-- installs `aspnetcore-runtime-10.0`
-- creates `/opt/cloudsoft`
-- writes `cloudsoft-web.service`
-- writes `cloudsoft-web.path`
-- auto-starts the web app once `/opt/cloudsoft/Cloudsoft.Web.dll` exists
+```bash
+ssh -i ~/.ssh/id_ed25519 \
+  -J azureuser@<bastion-public-ip> \
+  azureuser@<app-private-ip> \
+  'sudo journalctl -u cloudsoft-web -n 100 --no-pager'
+```
 
+Check proxy VM:
 
+```bash
+ssh -i ~/.ssh/id_ed25519 \
+  -J azureuser@<bastion-public-ip> \
+  azureuser@<proxy-private-ip> \
+  'curl -i --max-time 10 http://<app-private-ip>:8080 && sudo systemctl status nginx --no-pager'
+```
 
-## Use these exact commands from the repo root.
+## Azure Production Option 2: Container Apps With GitHub Actions
 
-### Publish the updated app:
+Use this option when deploying through CI/CD to Azure Container Apps.
+
+The workflow is:
+
+```text
+.github/workflows/ci-cd.yml
+```
+
+The Azure Container Apps Bicep files are:
+
+```text
+infra/container-apps/registry.bicep
+infra/container-apps/main.bicep
+```
+
+### CI/CD Flow
+
+On pull requests:
+
+1. Checkout code.
+2. Install .NET 10.
+3. Restore packages.
+4. Build the solution.
+5. Run tests.
+
+On push to `main`:
+
+1. Run build and tests.
+2. Log in to Azure using OIDC.
+3. Create or reuse the Azure resource group.
+4. Create or update Azure Container Registry.
+5. Build the Docker image.
+6. Push the Docker image to ACR.
+7. Deploy Azure Container Apps with Bicep.
+8. Print the deployed Container App URL.
+
+### Required GitHub Secrets
+
+Set these in:
+
+```text
+GitHub repository -> Settings -> Secrets and variables -> Actions -> Secrets
+```
+
+Required secrets:
+
+```text
+AZURE_CLIENT_ID
+AZURE_TENANT_ID
+AZURE_SUBSCRIPTION_ID
+MONGODB_CONNECTION_STRING
+AZURE_BLOB_CONTAINER_URL
+KEY_VAULT_URI
+```
+
+For the current OIDC setup, do not use `AZURE_CLIENT_SECRET`.
+
+### Required Azure Federated Credential
+
+The GitHub Actions Azure app registration needs a federated credential for the production environment:
+
+```text
+repo:<owner>/<repo>:environment:production
+```
+
+For this repository, the subject is:
+
+```text
+repo:Steose/Cloudsoft-Job:environment:production
+```
+
+The audience must be:
+
+```text
+api://AzureADTokenExchange
+```
+
+### Required Azure Roles
+
+The GitHub Actions service principal needs:
+
+```text
+Contributor
+User Access Administrator
+```
+
+Scope:
+
+```text
+/subscriptions/<subscription-id>/resourceGroups/cloudsoft-job-aca-rg
+```
+
+`User Access Administrator` is needed because `main.bicep` creates an `AcrPull` role assignment for the Container App managed identity.
+
+### Optional GitHub Variables
+
+Set these in:
+
+```text
+GitHub repository -> Settings -> Secrets and variables -> Actions -> Variables
+```
+
+Optional variables:
+
+```text
+AZURE_LOCATION
+AZURE_RESOURCE_GROUP
+ACA_PREFIX
+IMAGE_REPOSITORY
+USE_MONGODB
+USE_AZURE_STORAGE
+USE_AZURE_KEY_VAULT
+```
+
+Default values are defined in `.github/workflows/ci-cd.yml`.
+
+### Trigger Production Deployment
+
+Commit and push to `main`:
+
+```bash
+git push origin main
+```
+
+Then open:
+
+```text
+GitHub repository -> Actions -> CI/CD
+```
+
+## Azure Blob Image Setup
+
+The app uses `hero.png` as the background image.
+
+Local image path:
+
+```text
+src/Cloudsoft.Web/wwwroot/images/hero.png
+```
+
+VM deployment uploads it to:
+
+```text
+https://<storage-account>.blob.core.windows.net/images/hero.png
+```
+
+The web app uses:
+
+```text
+AzureBlob__ContainerUrl=https://<storage-account>.blob.core.windows.net/images
+FeatureFlags__UseAzureStorage=true
+```
+
+If the image does not display:
+
+1. Open the Blob URL directly in the browser.
+2. Confirm the container public access is `Blob`.
+3. Confirm the app rendered URL does not contain `images/images/hero.png`.
+4. Redeploy the app if the VM is running old code.
+
+## Common Commands
+
+Build:
+
+```bash
+dotnet build Cloudsoft.sln
+```
+
+Test:
+
+```bash
+dotnet test Cloudsoft.sln
+```
+
+Run web app:
+
+```bash
+dotnet run --project src/Cloudsoft.Web/Cloudsoft.Web.csproj
+```
+
+Publish web app:
 
 ```bash
 dotnet publish src/Cloudsoft.Web/Cloudsoft.Web.csproj -c Release -o ./publish
 ```
 
-### Copy the published files to the app VM through the bastion:
+Run Docker Compose:
 
 ```bash
-scp -i ~/.ssh/id_ed25519 \
-  -o ProxyJump=azureuser@4.210.106.35 \
-  -r ./publish/* \
-  azureuser@10.0.2.4:/opt/cloudsoft/
+docker compose -f docker/docker-compose.yml up --build
 ```
 
-### Restart the app service on the app VM:
+Stop Docker Compose:
 
 ```bash
-ssh -i ~/.ssh/id_ed25519 \
-  -J azureuser@4.210.106.35 \
-  azureuser@10.0.2.4 \
-  'sudo systemctl daemon-reload && sudo systemctl restart cloudsoft-web.service && sudo systemctl status cloudsoft-web.service --no-pager'
+docker compose -f docker/docker-compose.yml down
 ```
 
-### Check the app locally on the app VM:
+Run VM deployment:
 
 ```bash
-ssh -i ~/.ssh/id_ed25519 \
-  -J azureuser@4.210.106.35 \
-  azureuser@10.0.2.4 \
-  'curl -i --max-time 10 http://localhost:8080'
+cd infra/vm-deploy
+./provision.sh
 ```
 
-### Check the reverse proxy upstream from the proxy VM:
+## Troubleshooting
+
+### `dotnet run` Works But `/Job` Is Slow
+
+The app may be trying MongoDB first. In development, MongoDB has a short timeout and then falls back to in-memory storage.
+
+Start MongoDB locally or use Docker Compose:
 
 ```bash
-ssh -i ~/.ssh/id_ed25519 \
-  -J azureuser@4.210.106.35 \
-  azureuser@10.0.1.4 \
-  'curl -i --max-time 10 http://10.0.2.4:8080 && sudo systemctl status nginx --no-pager'
+docker compose -f docker/docker-compose.yml up --build
 ```
 
-```bash
-Check the public site:
-curl -i http://52.156.211.239
-```
+### `hero.png` Does Not Display In Production
 
-### If the app still shows the generic error page, run this and paste the output:
+Check the rendered About page HTML and look at the background image URL.
 
-```bash
-ssh -i ~/.ssh/id_ed25519 \
-  -J azureuser@4.210.106.35 \
-  azureuser@10.0.2.4 \
-  'sudo journalctl -u cloudsoft-web.service -n 100 --no-pager'
-  ```
-
-
-### If you are using the Cosmos DB account from this repo, get the key first:
-
-```bash
-az cosmosdb keys list \
-  --resource-group CloudsoftJobRG \
-  --name clsjobcosmosmongo12345 \
-  --type keys \
-  --query primaryMasterKey \
-  --output tsv
-```
-
-### Then build the connection string with:
+It should be:
 
 ```text
-username = clsjobcosmosmongo12345
-password = <primaryMasterKey>
-host = clsjobcosmosmongo12345.mongo.cosmos.azure.com
-database = clsjobdb
+https://<storage-account>.blob.core.windows.net/images/hero.png
 ```
 
-### After setting it, verify it:
+It should not be:
+
+```text
+https://<storage-account>.blob.core.windows.net/images/images/hero.png
+```
+
+If the deployed app still has the wrong URL, publish and redeploy the latest app.
+
+### Azure Login Fails In GitHub Actions
+
+Check:
+
+- `AZURE_CLIENT_ID`
+- `AZURE_TENANT_ID`
+- `AZURE_SUBSCRIPTION_ID`
+- Federated credential subject
+
+More details:
+
+```text
+docs/ci-cd-workflow-explanation.md
+```
+
+### Azure DeploymentActive Error
+
+Cancel the stuck deployment:
 
 ```bash
-az keyvault secret show \
-  --vault-name clsjobkv12345 \
-  --name "MongoDb--ConnectionString" \
-  --query value \
-  --output tsv
+az deployment group cancel \
+  --resource-group cloudsoft-job-aca-rg \
+  --name main
 ```
+
+Then re-run the workflow.
+
+### Azure Role Assignment Error
+
+If Bicep fails on:
+
+```text
+Microsoft.Authorization/roleAssignments/write
+```
+
+The GitHub Actions service principal needs:
+
+```text
+User Access Administrator
+```
+
+More details:
+
+```text
+docs/ci-cd-workflow-explanation.md
+```
+
+## Documentation
+
+More documentation is available in:
+
+- `docs/ci-cd-workflow-explanation.md`
+- `docs/azure-container-apps-deployment.md`
+- `docs/azure-container-registry-image-push.md`
+- `docs/github-actions-main-deploy.md`
+- `docs/azure-storage-images.md`
+- `infra/vm-deploy/README.md`
+- `test/README.md`
+
