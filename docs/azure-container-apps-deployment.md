@@ -20,6 +20,7 @@ This deployment path is separate from the existing VM deployment in `infra/`, so
    - Cosmos DB account using the MongoDB API
    - MongoDB database used by the app
    - Storage account and `images` blob container
+   - Storage Blob Data Contributor assignment for the GitHub deployment principal
    - Azure Container Apps managed environment
    - User-assigned managed identity
    - ACR pull role assignment
@@ -27,7 +28,8 @@ This deployment path is separate from the existing VM deployment in `infra/`, so
 7. The Container App runs the pushed image on port `8080`.
 8. The app receives a generated Cosmos DB MongoDB connection string through the `MongoDb__ConnectionString` secret.
 9. The app receives the generated image container URL through `AzureBlob__ContainerUrl`.
-10. The workflow prints the public Container App URL.
+10. The workflow uploads `src/Cloudsoft.Web/wwwroot/images/hero.png` to the generated blob container.
+11. The workflow prints the public Container App URL.
 
 ## Main Files
 
@@ -65,4 +67,4 @@ The Container App uses a user-assigned managed identity to pull images from ACR.
 
 The Container Apps template provisions Cosmos DB with the MongoDB API and enables MongoDB-backed repositories by default, so data persists across restarts, new revisions, and scale events. If `MONGODB_CONNECTION_STRING` is supplied, that external MongoDB connection string overrides the generated Cosmos DB connection string.
 
-When `USE_AZURE_STORAGE` is `true`, the deployment creates a StorageV2 account and a public blob container named `images`. Upload `hero.png` to that container so the web app can load `images/hero.png` from Azure Blob Storage.
+When `USE_AZURE_STORAGE` is `true`, the deployment creates a StorageV2 account and a public blob container named `images`. The workflow uploads `hero.png` to that container so the web app can load `images/hero.png` from Azure Blob Storage.

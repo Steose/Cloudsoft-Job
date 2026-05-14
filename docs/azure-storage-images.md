@@ -13,14 +13,16 @@ The web app can use this container for public image files such as `hero.png`.
 3. The Bicep file enables public blob access on the storage account.
 4. The Bicep file creates the `images` blob container.
 5. The container allows public read access for blobs.
-6. Bicep outputs the generated container URL.
-7. The Container App receives that URL as:
+6. Bicep grants Storage Blob Data Contributor to the GitHub OIDC deployment principal.
+7. Bicep outputs the generated storage account, container, and container URL.
+8. GitHub Actions uploads `src/Cloudsoft.Web/wwwroot/images/hero.png` to the container.
+9. The Container App receives that URL as:
 
 ```text
 AzureBlob__ContainerUrl
 ```
 
-8. The app builds image URLs from that container URL.
+10. The app builds image URLs from that container URL.
 
 For example:
 
@@ -36,9 +38,7 @@ https://<storage-account>.blob.core.windows.net/images/hero.png
 
 ## Uploading Images
 
-After deployment, upload `hero.png` to the `images` container.
-
-Example:
+The CI/CD workflow uploads `hero.png` automatically after `infra/container-apps/main.bicep` is deployed. For manual uploads, use:
 
 ```bash
 az storage blob upload \

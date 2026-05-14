@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.42.1.51946",
-      "templateHash": "3197733293725707717"
+      "templateHash": "11325471994918150368"
     }
   },
   "parameters": {
@@ -190,10 +190,18 @@
       "metadata": {
         "description": "Blob container name for public image assets."
       }
+    },
+    "imageUploaderPrincipalObjectId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Object ID of the deployment principal that should be allowed to upload public image assets."
+      }
     }
   },
   "variables": {
     "acrPullRoleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+    "storageBlobDataContributorRoleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
     "generatedAzureBlobContainerUrl": "[format('https://{0}.blob.{1}/{2}', parameters('storageAccountName'), environment().suffixes.storage, parameters('imageBlobContainerName'))]",
     "effectiveAzureBlobContainerUrl": "[if(not(empty(parameters('azureBlobContainerUrl'))), parameters('azureBlobContainerUrl'), if(parameters('useAzureStorage'), variables('generatedAzureBlobContainerUrl'), ''))]"
   },
@@ -337,6 +345,21 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('storageAccountName'), 'default')]"
+      ]
+    },
+    {
+      "condition": "[and(parameters('useAzureStorage'), not(empty(parameters('imageUploaderPrincipalObjectId'))))]",
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), parameters('imageUploaderPrincipalObjectId'), variables('storageBlobDataContributorRoleDefinitionId'))]",
+      "properties": {
+        "principalId": "[parameters('imageUploaderPrincipalObjectId')]",
+        "principalType": "ServicePrincipal",
+        "roleDefinitionId": "[variables('storageBlobDataContributorRoleDefinitionId')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
       ]
     },
     {

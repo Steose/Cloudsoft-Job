@@ -79,9 +79,17 @@ param storageAccountName string = take(replace('${prefix}st${uniqueString(resour
 @description('Blob container name for public image assets.')
 param imageBlobContainerName string = 'images'
 
+@description('Object ID of the deployment principal that should be allowed to upload public image assets.')
+param imageUploaderPrincipalObjectId string = ''
+
 var acrPullRoleDefinitionId = subscriptionResourceId(
   'Microsoft.Authorization/roleDefinitions',
   '7f951dda-4ed3-4680-a7ca-43fe172d538d'
+)
+
+var storageBlobDataContributorRoleDefinitionId = subscriptionResourceId(
+  'Microsoft.Authorization/roleDefinitions',
+  'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
 )
 
 var generatedAzureBlobContainerUrl = 'https://${storage.name}.blob.${az.environment().suffixes.storage}/${imageBlobContainerName}'
@@ -205,6 +213,16 @@ resource imageContainer 'Microsoft.Storage/storageAccounts/blobServices/containe
   name: imageBlobContainerName
   properties: {
     publicAccess: 'Blob'
+  }
+}
+
+resource imageUploaderAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (useAzureStorage && !empty(imageUploaderPrincipalObjectId)) {
+  name: guid(storage.id, imageUploaderPrincipalObjectId, storageBlobDataContributorRoleDefinitionId)
+  scope: storage
+  properties: {
+    principalId: imageUploaderPrincipalObjectId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: storageBlobDataContributorRoleDefinitionId
   }
 }
 
