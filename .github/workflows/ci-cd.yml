@@ -95,6 +95,7 @@ jobs:
           MONGODB_CONNECTION_STRING: ${{ secrets.MONGODB_CONNECTION_STRING }}
           AZURE_BLOB_CONTAINER_URL: ${{ secrets.AZURE_BLOB_CONTAINER_URL }}
           KEY_VAULT_URI: ${{ secrets.KEY_VAULT_URI }}
+          AZURE_CLIENT_OBJECT_ID: ${{ vars.AZURE_CLIENT_OBJECT_ID }}
         run: |
           az deployment group create \
             --resource-group "$AZURE_RESOURCE_GROUP" \
@@ -136,11 +137,17 @@ jobs:
             --output tsv)
 
           if [ -n "$IMAGE_STORAGE_ACCOUNT_NAME" ] && [ -n "$IMAGE_BLOB_CONTAINER_NAME" ]; then
+            if [ -z "$AZURE_CLIENT_OBJECT_ID" ]; then
+              echo "AZURE_CLIENT_OBJECT_ID GitHub variable is required to assign Storage Blob Data Contributor for image upload."
+              exit 1
+            fi
+
             az role assignment create \
-              --assignee "${{ secrets.AZURE_CLIENT_ID }}" \
+              --assignee-object-id "$AZURE_CLIENT_OBJECT_ID" \
+              --assignee-principal-type ServicePrincipal \
               --role "Storage Blob Data Contributor" \
               --scope "$IMAGE_STORAGE_ACCOUNT_ID" \
-              --only-show-errors || true
+              --only-show-errors
 
             for attempt in 1 2 3 4 5; do
               if az storage blob upload \

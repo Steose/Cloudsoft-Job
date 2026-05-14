@@ -57,6 +57,7 @@ The workflow has defaults, but these variables can be set in GitHub for clearer 
 - `AZURE_LOCATION`
 - `ACA_PREFIX`
 - `IMAGE_REPOSITORY`
+- `AZURE_CLIENT_OBJECT_ID`
 - `USE_MONGODB`
 - `USE_AZURE_STORAGE`
 - `USE_AZURE_KEY_VAULT`
@@ -68,3 +69,5 @@ The Container App uses a user-assigned managed identity to pull images from ACR.
 The Container Apps template provisions Cosmos DB with the MongoDB API and enables MongoDB-backed repositories by default, so data persists across restarts, new revisions, and scale events. If `MONGODB_CONNECTION_STRING` is supplied, that external MongoDB connection string overrides the generated Cosmos DB connection string.
 
 When `USE_AZURE_STORAGE` is `true`, the deployment creates a StorageV2 account and a public blob container named `images`. The workflow uploads `hero.png` to that container so the web app can load `images/hero.png` from Azure Blob Storage.
+
+`AZURE_CLIENT_OBJECT_ID` must be the object ID of the service principal used by `AZURE_CLIENT_ID`. The workflow uses it with `--assignee-object-id` to avoid Microsoft Graph service principal lookups during deployment.
