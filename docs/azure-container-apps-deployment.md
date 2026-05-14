@@ -78,4 +78,4 @@ You can get it with:
 az ad sp show --id <AZURE_CLIENT_ID> --query id --output tsv
 ```
 
-Then add the returned value as a GitHub Actions variable named `AZURE_CLIENT_OBJECT_ID`.
+Then add the returned value as a GitHub Actions variable named `AZURE_CLIENT_OBJECT_ID`. The workflow also accepts it as a secret with the same name.

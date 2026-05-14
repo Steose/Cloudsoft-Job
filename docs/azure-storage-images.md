@@ -38,7 +38,7 @@ https://<storage-account>.blob.core.windows.net/images/hero.png
 
 ## Uploading Images
 
-The CI/CD workflow uploads `hero.png` automatically after `infra/container-apps/main.bicep` is deployed. Set the `AZURE_CLIENT_OBJECT_ID` GitHub variable to the object ID of the service principal used by `AZURE_CLIENT_ID`; the workflow uses that object ID to assign `Storage Blob Data Contributor` without an Entra service principal lookup.
+The CI/CD workflow uploads `hero.png` automatically after `infra/container-apps/main.bicep` is deployed. Set `AZURE_CLIENT_OBJECT_ID` as a GitHub variable or secret with the object ID of the service principal used by `AZURE_CLIENT_ID`; the workflow uses that object ID to assign `Storage Blob Data Contributor` without an Entra service principal lookup.
 
 You can get the object ID with:
 

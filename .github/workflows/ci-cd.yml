@@ -95,7 +95,7 @@ jobs:
           MONGODB_CONNECTION_STRING: ${{ secrets.MONGODB_CONNECTION_STRING }}
           AZURE_BLOB_CONTAINER_URL: ${{ secrets.AZURE_BLOB_CONTAINER_URL }}
           KEY_VAULT_URI: ${{ secrets.KEY_VAULT_URI }}
-          AZURE_CLIENT_OBJECT_ID: ${{ vars.AZURE_CLIENT_OBJECT_ID }}
+          AZURE_CLIENT_OBJECT_ID: ${{ vars.AZURE_CLIENT_OBJECT_ID || secrets.AZURE_CLIENT_OBJECT_ID }}
         run: |
           if [ "${{ vars.USE_AZURE_STORAGE || 'true' }}" = "true" ] && [ -z "$AZURE_CLIENT_OBJECT_ID" ]; then
             echo "AZURE_CLIENT_OBJECT_ID GitHub variable is required when USE_AZURE_STORAGE is true."
