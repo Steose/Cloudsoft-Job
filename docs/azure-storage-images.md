@@ -13,8 +13,8 @@ The web app can use this container for public image files such as `hero.png`.
 3. The Bicep file enables public blob access on the storage account.
 4. The Bicep file creates the `images` blob container.
 5. The container allows public read access for blobs.
-6. Bicep grants Storage Blob Data Contributor to the GitHub OIDC deployment principal.
-7. Bicep outputs the generated storage account, container, and container URL.
+6. Bicep outputs the generated storage account, container, and container URL.
+7. GitHub Actions grants Storage Blob Data Contributor to the GitHub OIDC deployment principal.
 8. GitHub Actions uploads `src/Cloudsoft.Web/wwwroot/images/hero.png` to the container.
 9. The Container App receives that URL as:
 

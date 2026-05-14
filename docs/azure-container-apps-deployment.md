@@ -20,7 +20,6 @@ This deployment path is separate from the existing VM deployment in `infra/`, so
    - Cosmos DB account using the MongoDB API
    - MongoDB database used by the app
    - Storage account and `images` blob container
-   - Storage Blob Data Contributor assignment for the GitHub deployment principal
    - Azure Container Apps managed environment
    - User-assigned managed identity
    - ACR pull role assignment
@@ -28,8 +27,9 @@ This deployment path is separate from the existing VM deployment in `infra/`, so
 7. The Container App runs the pushed image on port `8080`.
 8. The app receives a generated Cosmos DB MongoDB connection string through the `MongoDb__ConnectionString` secret.
 9. The app receives the generated image container URL through `AzureBlob__ContainerUrl`.
-10. The workflow uploads `src/Cloudsoft.Web/wwwroot/images/hero.png` to the generated blob container.
-11. The workflow prints the public Container App URL.
+10. The workflow grants Storage Blob Data Contributor to the GitHub deployment principal.
+11. The workflow uploads `src/Cloudsoft.Web/wwwroot/images/hero.png` to the generated blob container.
+12. The workflow prints the public Container App URL.
 
 ## Main Files
 

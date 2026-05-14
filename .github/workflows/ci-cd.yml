@@ -96,11 +96,6 @@ jobs:
           AZURE_BLOB_CONTAINER_URL: ${{ secrets.AZURE_BLOB_CONTAINER_URL }}
           KEY_VAULT_URI: ${{ secrets.KEY_VAULT_URI }}
         run: |
-          IMAGE_UPLOADER_PRINCIPAL_OBJECT_ID=$(az ad sp show \
-            --id "${{ secrets.AZURE_CLIENT_ID }}" \
-            --query id \
-            --output tsv)
-
           az deployment group create \
             --resource-group "$AZURE_RESOURCE_GROUP" \
             --template-file infra/container-apps/main.bicep \
@@ -113,7 +108,6 @@ jobs:
               mongoDbConnectionString="$MONGODB_CONNECTION_STRING" \
               useAzureStorage="${{ vars.USE_AZURE_STORAGE || 'true' }}" \
               azureBlobContainerUrl="$AZURE_BLOB_CONTAINER_URL" \
-              imageUploaderPrincipalObjectId="$IMAGE_UPLOADER_PRINCIPAL_OBJECT_ID" \
               useAzureKeyVault="${{ vars.USE_AZURE_KEY_VAULT || 'false' }}" \
               keyVaultUri="$KEY_VAULT_URI"
 
@@ -129,6 +123,12 @@ jobs:
             --query "properties.outputs.imageStorageAccountName.value" \
             --output tsv)
 
+          IMAGE_STORAGE_ACCOUNT_ID=$(az deployment group show \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name main \
+            --query "properties.outputs.imageStorageAccountId.value" \
+            --output tsv)
+
           IMAGE_BLOB_CONTAINER_NAME=$(az deployment group show \
             --resource-group "$AZURE_RESOURCE_GROUP" \
             --name main \
@@ -136,6 +136,12 @@ jobs:
             --output tsv)
 
           if [ -n "$IMAGE_STORAGE_ACCOUNT_NAME" ] && [ -n "$IMAGE_BLOB_CONTAINER_NAME" ]; then
+            az role assignment create \
+              --assignee "${{ secrets.AZURE_CLIENT_ID }}" \
+              --role "Storage Blob Data Contributor" \
+              --scope "$IMAGE_STORAGE_ACCOUNT_ID" \
+              --only-show-errors || true
+
             for attempt in 1 2 3 4 5; do
               if az storage blob upload \
                 --account-name "$IMAGE_STORAGE_ACCOUNT_NAME" \
