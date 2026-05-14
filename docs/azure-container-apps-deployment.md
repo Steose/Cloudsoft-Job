@@ -71,3 +71,11 @@ The Container Apps template provisions Cosmos DB with the MongoDB API and enable
 When `USE_AZURE_STORAGE` is `true`, the deployment creates a StorageV2 account and a public blob container named `images`. The workflow uploads `hero.png` to that container so the web app can load `images/hero.png` from Azure Blob Storage.
 
 `AZURE_CLIENT_OBJECT_ID` must be the object ID of the service principal used by `AZURE_CLIENT_ID`. The workflow uses it with `--assignee-object-id` to avoid Microsoft Graph service principal lookups during deployment.
+
+You can get it with:
+
+```bash
+az ad sp show --id <AZURE_CLIENT_ID> --query id --output tsv
+```
+
+Then add the returned value as a GitHub Actions variable named `AZURE_CLIENT_OBJECT_ID`.

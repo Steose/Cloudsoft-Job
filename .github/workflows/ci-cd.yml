@@ -97,6 +97,12 @@ jobs:
           KEY_VAULT_URI: ${{ secrets.KEY_VAULT_URI }}
           AZURE_CLIENT_OBJECT_ID: ${{ vars.AZURE_CLIENT_OBJECT_ID }}
         run: |
+          if [ "${{ vars.USE_AZURE_STORAGE || 'true' }}" = "true" ] && [ -z "$AZURE_CLIENT_OBJECT_ID" ]; then
+            echo "AZURE_CLIENT_OBJECT_ID GitHub variable is required when USE_AZURE_STORAGE is true."
+            echo "Set it to the object ID of the service principal used by AZURE_CLIENT_ID."
+            exit 1
+          fi
+
           az deployment group create \
             --resource-group "$AZURE_RESOURCE_GROUP" \
             --template-file infra/container-apps/main.bicep \
@@ -137,11 +143,6 @@ jobs:
             --output tsv)
 
           if [ -n "$IMAGE_STORAGE_ACCOUNT_NAME" ] && [ -n "$IMAGE_BLOB_CONTAINER_NAME" ]; then
-            if [ -z "$AZURE_CLIENT_OBJECT_ID" ]; then
-              echo "AZURE_CLIENT_OBJECT_ID GitHub variable is required to assign Storage Blob Data Contributor for image upload."
-              exit 1
-            fi
-
             az role assignment create \
               --assignee-object-id "$AZURE_CLIENT_OBJECT_ID" \
               --assignee-principal-type ServicePrincipal \
