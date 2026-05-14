@@ -43,7 +43,7 @@ param cpu string = '0.5'
 param memory string = '1Gi'
 
 @secure()
-@description('Optional MongoDB connection string. Leave empty to use in-memory storage.')
+@description('Optional external MongoDB connection string. Leave empty to use the Cosmos DB MongoDB API account created by this template.')
 param mongoDbConnectionString string = ''
 
 @description('MongoDB database name.')
@@ -55,8 +55,11 @@ param mongoDbJobPostingsCollectionName string = 'jobPostings'
 @description('MongoDB employers collection name.')
 param mongoDbEmployersCollectionName string = 'employers'
 
-@description('Enable MongoDB repositories when a connection string is supplied.')
-param useMongoDb bool = false
+@description('Enable MongoDB repositories. Defaults to true because this template provisions Cosmos DB for persistence.')
+param useMongoDb bool = true
+
+@description('Cosmos DB MongoDB API account name. Must be globally unique, lowercase, 3-44 characters.')
+param cosmosAccountName string = take(replace('${prefix}cosmos${uniqueString(resourceGroup().id)}', '-', ''), 44)
 
 @description('Enable Azure Key Vault configuration loading inside the app.')
 param useAzureKeyVault bool = false
@@ -83,6 +86,8 @@ var acrPullRoleDefinitionId = subscriptionResourceId(
 
 var generatedAzureBlobContainerUrl = 'https://${storage.name}.blob.${az.environment().suffixes.storage}/${imageBlobContainerName}'
 var effectiveAzureBlobContainerUrl = !empty(azureBlobContainerUrl) ? azureBlobContainerUrl : (useAzureStorage ? generatedAzureBlobContainerUrl : '')
+var generatedMongoDbConnectionString = 'mongodb://${cosmosAccount.name}:${uriComponent(cosmosAccount.listKeys().primaryMasterKey)}@${cosmosAccount.name}.mongo.cosmos.azure.com:10255/${mongoDbDatabaseName}?ssl=true&replicaSet=globaldb&retrywrites=false&maxIdleTimeMS=120000&authMechanism=SCRAM-SHA-256&appName=@${cosmosAccount.name}@'
+var effectiveMongoDbConnectionString = !empty(mongoDbConnectionString) ? mongoDbConnectionString : generatedMongoDbConnectionString
 
 resource acr 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' = {
   name: acrName
@@ -119,6 +124,47 @@ resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
       name: 'PerGB2018'
     }
     retentionInDays: 30
+  }
+}
+
+resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' = {
+  name: cosmosAccountName
+  location: location
+  kind: 'MongoDB'
+  properties: {
+    databaseAccountOfferType: 'Standard'
+    locations: [
+      {
+        locationName: location
+        failoverPriority: 0
+        isZoneRedundant: false
+      }
+    ]
+    apiProperties: {
+      serverVersion: '4.2'
+    }
+    capabilities: [
+      {
+        name: 'EnableMongo'
+      }
+    ]
+    consistencyPolicy: {
+      defaultConsistencyLevel: 'Session'
+    }
+    publicNetworkAccess: 'Enabled'
+    enableAutomaticFailover: false
+    minimalTlsVersion: 'Tls12'
+    disableLocalAuth: false
+  }
+}
+
+resource cosmosMongoDb 'Microsoft.DocumentDB/databaseAccounts/mongodbDatabases@2025-04-15' = {
+  parent: cosmosAccount
+  name: mongoDbDatabaseName
+  properties: {
+    resource: {
+      id: mongoDbDatabaseName
+    }
   }
 }
 
@@ -201,10 +247,10 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           identity: pullIdentity.id
         }
       ]
-      secrets: empty(mongoDbConnectionString) ? [] : [
+      secrets: [
         {
           name: 'mongodb-connection-string'
-          value: mongoDbConnectionString
+          value: effectiveMongoDbConnectionString
         }
       ]
     }
@@ -254,7 +300,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'AzureBlob__ContainerUrl'
               value: effectiveAzureBlobContainerUrl
             }
-          ], empty(mongoDbConnectionString) ? [] : [
+          ], [
             {
               name: 'MongoDb__ConnectionString'
               secretRef: 'mongodb-connection-string'
@@ -274,6 +320,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   }
   dependsOn: [
     acrPullAssignment
+    cosmosMongoDb
   ]
 }
 
@@ -283,6 +330,9 @@ output containerAppName string = containerApp.name
 output containerAppFqdn string = containerApp.properties.configuration.ingress.fqdn
 output containerAppUrl string = 'https://${containerApp.properties.configuration.ingress.fqdn}'
 output managedEnvironmentName string = environment.name
+output cosmosAccountName string = cosmosAccount.name
+output cosmosMongoDbName string = cosmosMongoDb.name
+output cosmosEndpoint string = cosmosAccount.properties.documentEndpoint
 output imageStorageAccountName string = useAzureStorage ? storage.name : ''
 output imageBlobContainerName string = useAzureStorage ? imageContainer.name : ''
 output imageBlobContainerUrl string = effectiveAzureBlobContainerUrl

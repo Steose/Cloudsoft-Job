@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.42.1.51946",
-      "templateHash": "3336029823066897880"
+      "templateHash": "3197733293725707717"
     }
   },
   "parameters": {
@@ -111,7 +111,7 @@
       "type": "securestring",
       "defaultValue": "",
       "metadata": {
-        "description": "Optional MongoDB connection string. Leave empty to use in-memory storage."
+        "description": "Optional external MongoDB connection string. Leave empty to use the Cosmos DB MongoDB API account created by this template."
       }
     },
     "mongoDbDatabaseName": {
@@ -137,9 +137,16 @@
     },
     "useMongoDb": {
       "type": "bool",
-      "defaultValue": false,
+      "defaultValue": true,
       "metadata": {
-        "description": "Enable MongoDB repositories when a connection string is supplied."
+        "description": "Enable MongoDB repositories. Defaults to true because this template provisions Cosmos DB for persistence."
+      }
+    },
+    "cosmosAccountName": {
+      "type": "string",
+      "defaultValue": "[take(replace(format('{0}cosmos{1}', parameters('prefix'), uniqueString(resourceGroup().id)), '-', ''), 44)]",
+      "metadata": {
+        "description": "Cosmos DB MongoDB API account name. Must be globally unique, lowercase, 3-44 characters."
       }
     },
     "useAzureKeyVault": {
@@ -238,6 +245,51 @@
       }
     },
     {
+      "type": "Microsoft.DocumentDB/databaseAccounts",
+      "apiVersion": "2025-04-15",
+      "name": "[parameters('cosmosAccountName')]",
+      "location": "[parameters('location')]",
+      "kind": "MongoDB",
+      "properties": {
+        "databaseAccountOfferType": "Standard",
+        "locations": [
+          {
+            "locationName": "[parameters('location')]",
+            "failoverPriority": 0,
+            "isZoneRedundant": false
+          }
+        ],
+        "apiProperties": {
+          "serverVersion": "4.2"
+        },
+        "capabilities": [
+          {
+            "name": "EnableMongo"
+          }
+        ],
+        "consistencyPolicy": {
+          "defaultConsistencyLevel": "Session"
+        },
+        "publicNetworkAccess": "Enabled",
+        "enableAutomaticFailover": false,
+        "minimalTlsVersion": "Tls12",
+        "disableLocalAuth": false
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/mongodbDatabases",
+      "apiVersion": "2025-04-15",
+      "name": "[format('{0}/{1}', parameters('cosmosAccountName'), parameters('mongoDbDatabaseName'))]",
+      "properties": {
+        "resource": {
+          "id": "[parameters('mongoDbDatabaseName')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName'))]"
+      ]
+    },
+    {
       "condition": "[parameters('useAzureStorage')]",
       "type": "Microsoft.Storage/storageAccounts",
       "apiVersion": "2023-05-01",
@@ -332,14 +384,19 @@
               "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]"
             }
           ],
-          "secrets": "[if(empty(parameters('mongoDbConnectionString')), createArray(), createArray(createObject('name', 'mongodb-connection-string', 'value', parameters('mongoDbConnectionString'))))]"
+          "secrets": [
+            {
+              "name": "mongodb-connection-string",
+              "value": "[if(not(empty(parameters('mongoDbConnectionString'))), parameters('mongoDbConnectionString'), format('mongodb://{0}:{1}@{2}.mongo.cosmos.azure.com:10255/{3}?ssl=true&replicaSet=globaldb&retrywrites=false&maxIdleTimeMS=120000&authMechanism=SCRAM-SHA-256&appName=@{4}@', parameters('cosmosAccountName'), uriComponent(listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')), '2025-04-15').primaryMasterKey), parameters('cosmosAccountName'), parameters('mongoDbDatabaseName'), parameters('cosmosAccountName')))]"
+            }
+          ]
         },
         "template": {
           "containers": [
             {
               "name": "cloudsoft-web",
               "image": "[format('{0}/{1}:{2}', reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-11-01-preview').loginServer, parameters('imageRepository'), parameters('imageTag'))]",
-              "env": "[concat(createArray(createObject('name', 'ASPNETCORE_URLS', 'value', format('http://+:{0}', parameters('containerPort'))), createObject('name', 'ASPNETCORE_ENVIRONMENT', 'value', 'Production'), createObject('name', 'FeatureFlags__UseMongoDb', 'value', string(parameters('useMongoDb'))), createObject('name', 'FeatureFlags__UseAzureKeyVault', 'value', string(parameters('useAzureKeyVault'))), createObject('name', 'FeatureFlags__UseAzureStorage', 'value', string(parameters('useAzureStorage'))), createObject('name', 'MongoDb__DatabaseName', 'value', parameters('mongoDbDatabaseName')), createObject('name', 'MongoDb__JobPostingsCollectionName', 'value', parameters('mongoDbJobPostingsCollectionName')), createObject('name', 'MongoDb__EmployersCollectionName', 'value', parameters('mongoDbEmployersCollectionName')), createObject('name', 'KeyVault__VaultUri', 'value', parameters('keyVaultUri')), createObject('name', 'AzureBlob__ContainerUrl', 'value', variables('effectiveAzureBlobContainerUrl'))), if(empty(parameters('mongoDbConnectionString')), createArray(), createArray(createObject('name', 'MongoDb__ConnectionString', 'secretRef', 'mongodb-connection-string'))))]",
+              "env": "[concat(createArray(createObject('name', 'ASPNETCORE_URLS', 'value', format('http://+:{0}', parameters('containerPort'))), createObject('name', 'ASPNETCORE_ENVIRONMENT', 'value', 'Production'), createObject('name', 'FeatureFlags__UseMongoDb', 'value', string(parameters('useMongoDb'))), createObject('name', 'FeatureFlags__UseAzureKeyVault', 'value', string(parameters('useAzureKeyVault'))), createObject('name', 'FeatureFlags__UseAzureStorage', 'value', string(parameters('useAzureStorage'))), createObject('name', 'MongoDb__DatabaseName', 'value', parameters('mongoDbDatabaseName')), createObject('name', 'MongoDb__JobPostingsCollectionName', 'value', parameters('mongoDbJobPostingsCollectionName')), createObject('name', 'MongoDb__EmployersCollectionName', 'value', parameters('mongoDbEmployersCollectionName')), createObject('name', 'KeyVault__VaultUri', 'value', parameters('keyVaultUri')), createObject('name', 'AzureBlob__ContainerUrl', 'value', variables('effectiveAzureBlobContainerUrl'))), createArray(createObject('name', 'MongoDb__ConnectionString', 'secretRef', 'mongodb-connection-string')))]",
               "resources": {
                 "cpu": "[json(parameters('cpu'))]",
                 "memory": "[parameters('memory')]"
@@ -355,6 +412,8 @@
       "dependsOn": [
         "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
         "[extensionResourceId(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName')), variables('acrPullRoleDefinitionId')))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/mongodbDatabases', parameters('cosmosAccountName'), parameters('mongoDbDatabaseName'))]",
         "[resourceId('Microsoft.App/managedEnvironments', parameters('containerAppsEnvironmentName'))]",
         "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]",
         "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
@@ -385,6 +444,18 @@
     "managedEnvironmentName": {
       "type": "string",
       "value": "[parameters('containerAppsEnvironmentName')]"
+    },
+    "cosmosAccountName": {
+      "type": "string",
+      "value": "[parameters('cosmosAccountName')]"
+    },
+    "cosmosMongoDbName": {
+      "type": "string",
+      "value": "[parameters('mongoDbDatabaseName')]"
+    },
+    "cosmosEndpoint": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')), '2025-04-15').documentEndpoint]"
     },
     "imageStorageAccountName": {
       "type": "string",

@@ -104,7 +104,7 @@ jobs:
               prefix="$ACA_PREFIX" \
               imageRepository="$IMAGE_REPOSITORY" \
               imageTag="$IMAGE_TAG" \
-              useMongoDb="${{ vars.USE_MONGODB || 'false' }}" \
+              useMongoDb="${{ vars.USE_MONGODB || 'true' }}" \
               mongoDbConnectionString="$MONGODB_CONNECTION_STRING" \
               useAzureStorage="${{ vars.USE_AZURE_STORAGE || 'true' }}" \
               azureBlobContainerUrl="$AZURE_BLOB_CONTAINER_URL" \
