@@ -27,8 +27,8 @@ This deployment path is separate from the existing VM deployment in `infra/`, so
 7. The Container App runs the pushed image on port `8080`.
 8. The app receives a generated Cosmos DB MongoDB connection string through the `MongoDb__ConnectionString` secret.
 9. The app receives the generated image container URL through `AzureBlob__ContainerUrl`.
-10. The workflow grants Storage Blob Data Contributor to the GitHub deployment principal.
-11. The workflow uploads `src/Cloudsoft.Web/wwwroot/images/hero.png` to the generated blob container.
+10. The workflow uploads `src/Cloudsoft.Web/wwwroot/images/hero.png` to the generated blob container using the storage account key.
+11. If `AZURE_CLIENT_OBJECT_ID` is configured, the workflow also grants Storage Blob Data Contributor to the GitHub deployment principal.
 12. The workflow prints the public Container App URL.
 
 ## Main Files
@@ -57,7 +57,6 @@ The workflow has defaults, but these variables can be set in GitHub for clearer 
 - `AZURE_LOCATION`
 - `ACA_PREFIX`
 - `IMAGE_REPOSITORY`
-- `AZURE_CLIENT_OBJECT_ID`
 - `USE_MONGODB`
 - `USE_AZURE_STORAGE`
 - `USE_AZURE_KEY_VAULT`
@@ -70,7 +69,7 @@ The Container Apps template provisions Cosmos DB with the MongoDB API and enable
 
 When `USE_AZURE_STORAGE` is `true`, the deployment creates a StorageV2 account and a public blob container named `images`. The workflow uploads `hero.png` to that container so the web app can load `images/hero.png` from Azure Blob Storage.
 
-`AZURE_CLIENT_OBJECT_ID` must be the object ID of the service principal used by `AZURE_CLIENT_ID`. The workflow uses it with `--assignee-object-id` to avoid Microsoft Graph service principal lookups during deployment.
+`AZURE_CLIENT_OBJECT_ID` is optional. When configured, it must be the object ID of the service principal used by `AZURE_CLIENT_ID`. The workflow uses it with `--assignee-object-id` to avoid Microsoft Graph service principal lookups during deployment.
 
 You can get it with:
 

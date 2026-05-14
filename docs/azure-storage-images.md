@@ -14,8 +14,8 @@ The web app can use this container for public image files such as `hero.png`.
 4. The Bicep file creates the `images` blob container.
 5. The container allows public read access for blobs.
 6. Bicep outputs the generated storage account, container, and container URL.
-7. GitHub Actions grants Storage Blob Data Contributor to the GitHub OIDC deployment principal.
-8. GitHub Actions uploads `src/Cloudsoft.Web/wwwroot/images/hero.png` to the container.
+7. GitHub Actions uploads `src/Cloudsoft.Web/wwwroot/images/hero.png` to the container using the storage account key.
+8. If `AZURE_CLIENT_OBJECT_ID` is configured, GitHub Actions also grants Storage Blob Data Contributor to the GitHub OIDC deployment principal.
 9. The Container App receives that URL as:
 
 ```text
@@ -38,7 +38,7 @@ https://<storage-account>.blob.core.windows.net/images/hero.png
 
 ## Uploading Images
 
-The CI/CD workflow uploads `hero.png` automatically after `infra/container-apps/main.bicep` is deployed. Set `AZURE_CLIENT_OBJECT_ID` as a GitHub variable or secret with the object ID of the service principal used by `AZURE_CLIENT_ID`; the workflow uses that object ID to assign `Storage Blob Data Contributor` without an Entra service principal lookup.
+The CI/CD workflow uploads `hero.png` automatically after `infra/container-apps/main.bicep` is deployed. `AZURE_CLIENT_OBJECT_ID` is optional. If set as a GitHub variable or secret, the workflow uses that object ID to assign `Storage Blob Data Contributor` without an Entra service principal lookup.
 
 You can get the object ID with:
 
@@ -54,7 +54,7 @@ az storage blob upload \
   --container-name images \
   --name hero.png \
   --file src/Cloudsoft.Web/wwwroot/images/hero.png \
-  --auth-mode login \
+  --auth-mode key \
   --overwrite
 ```
 

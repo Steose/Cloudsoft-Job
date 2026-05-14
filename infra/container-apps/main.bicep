@@ -178,7 +178,7 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = if (useAzureSt
   properties: {
     accessTier: 'Hot'
     allowBlobPublicAccess: true
-    allowSharedKeyAccess: false
+    allowSharedKeyAccess: true
     defaultToOAuthAuthentication: true
     minimumTlsVersion: 'TLS1_2'
     supportsHttpsTrafficOnly: true

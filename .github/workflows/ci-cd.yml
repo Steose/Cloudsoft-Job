@@ -97,12 +97,6 @@ jobs:
           KEY_VAULT_URI: ${{ secrets.KEY_VAULT_URI }}
           AZURE_CLIENT_OBJECT_ID: ${{ vars.AZURE_CLIENT_OBJECT_ID || secrets.AZURE_CLIENT_OBJECT_ID }}
         run: |
-          if [ "${{ vars.USE_AZURE_STORAGE || 'true' }}" = "true" ] && [ -z "$AZURE_CLIENT_OBJECT_ID" ]; then
-            echo "AZURE_CLIENT_OBJECT_ID GitHub variable is required when USE_AZURE_STORAGE is true."
-            echo "Set it to the object ID of the service principal used by AZURE_CLIENT_ID."
-            exit 1
-          fi
-
           az deployment group create \
             --resource-group "$AZURE_RESOURCE_GROUP" \
             --template-file infra/container-apps/main.bicep \
@@ -143,20 +137,28 @@ jobs:
             --output tsv)
 
           if [ -n "$IMAGE_STORAGE_ACCOUNT_NAME" ] && [ -n "$IMAGE_BLOB_CONTAINER_NAME" ]; then
-            az role assignment create \
-              --assignee-object-id "$AZURE_CLIENT_OBJECT_ID" \
-              --assignee-principal-type ServicePrincipal \
-              --role "Storage Blob Data Contributor" \
-              --scope "$IMAGE_STORAGE_ACCOUNT_ID" \
-              --only-show-errors
+            if [ -n "$AZURE_CLIENT_OBJECT_ID" ]; then
+              az role assignment create \
+                --assignee-object-id "$AZURE_CLIENT_OBJECT_ID" \
+                --assignee-principal-type ServicePrincipal \
+                --role "Storage Blob Data Contributor" \
+                --scope "$IMAGE_STORAGE_ACCOUNT_ID" \
+                --only-show-errors || true
+            fi
+
+            IMAGE_STORAGE_ACCOUNT_KEY=$(az storage account keys list \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --account-name "$IMAGE_STORAGE_ACCOUNT_NAME" \
+              --query "[0].value" \
+              --output tsv)
 
             for attempt in 1 2 3 4 5; do
               if az storage blob upload \
                 --account-name "$IMAGE_STORAGE_ACCOUNT_NAME" \
+                --account-key "$IMAGE_STORAGE_ACCOUNT_KEY" \
                 --container-name "$IMAGE_BLOB_CONTAINER_NAME" \
                 --name hero.png \
                 --file src/Cloudsoft.Web/wwwroot/images/hero.png \
-                --auth-mode login \
                 --overwrite true; then
                 break
               fi
