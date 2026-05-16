@@ -23,6 +23,11 @@ public class JobPostingService : IJobPostingService
         return _jobPostingRepository.GetActiveAsync();
     }
 
+    public Task<IReadOnlyCollection<JobPosting>> GetByEmployerIdAsync(string employerId)
+    {
+        return _jobPostingRepository.GetByEmployerIdAsync(employerId);
+    }
+
     public Task<JobPosting?> GetByIdAsync(string id)
     {
         return _jobPostingRepository.GetByIdAsync(id);

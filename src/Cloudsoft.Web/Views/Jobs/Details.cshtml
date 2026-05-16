@@ -2,10 +2,27 @@
 
 @{
     ViewData["Title"] = Model.Title;
+    var countries = ViewBag.Countries as IReadOnlyList<Cloudsoft.Core.Models.CountryItem> ?? [];
 }
 
 <div class="row justify-content-center">
     <div class="col-lg-8">
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                @TempData["SuccessMessage"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        }
+
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                @TempData["ErrorMessage"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        }
+
         <div class="card shadow-sm">
             <div class="card-body">
                 <h2 class="card-title">@Model.Title</h2>
@@ -19,6 +36,48 @@
             </div>
             <div class="card-footer bg-transparent">
                 <a class="btn btn-outline-secondary" asp-controller="Jobs" asp-action="Index">Back to Jobs</a>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mt-4">
+            <div class="card-header bg-primary text-white">
+                <h3 class="h5 mb-0">Apply for this job</h3>
+            </div>
+            <div class="card-body">
+                <form asp-controller="Jobs" asp-action="Apply" method="post" enctype="multipart/form-data">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="jobPostingId" value="@Model.Id" />
+
+                    <div class="mb-3">
+                        <label for="fullName" class="form-label">Full name</label>
+                        <input id="fullName" name="fullName" class="form-control" required maxlength="120" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input id="email" name="email" class="form-control" type="email" required maxlength="160" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="countryCode" class="form-label">Country</label>
+                        <select id="countryCode" name="countryCode" class="form-select" required>
+                            <option value="">Select a country</option>
+                            @foreach (var country in countries)
+                            {
+                                <option value="@country.Code">@country.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="cvFile" class="form-label">CV</label>
+                        <input id="cvFile" name="cvFile" class="form-control" type="file" accept=".pdf,.doc,.docx" required />
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane me-2"></i>Submit application
+                    </button>
+                </form>
             </div>
         </div>
     </div>

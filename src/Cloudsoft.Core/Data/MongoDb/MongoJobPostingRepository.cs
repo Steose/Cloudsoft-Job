@@ -43,6 +43,17 @@ public class MongoJobPostingRepository : IJobPostingRepository
             .ToList();
     }
 
+    public async Task<IReadOnlyCollection<JobPosting>> GetByEmployerIdAsync(string employerId)
+    {
+        var jobPostings = await _jobPostings
+            .Find(jobPosting => jobPosting.EmployerId == employerId)
+            .ToListAsync();
+
+        return jobPostings
+            .OrderByDescending(jobPosting => jobPosting.CreatedAtUtc)
+            .ToList();
+    }
+
     public async Task<JobPosting?> GetByIdAsync(string id)
     {
         if (string.IsNullOrWhiteSpace(id))

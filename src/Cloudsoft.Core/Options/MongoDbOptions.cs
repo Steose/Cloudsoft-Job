@@ -11,4 +11,6 @@ public class MongoDbOptions
     public string JobPostingsCollectionName { get; set; } = "jobPostings";
 
     public string EmployersCollectionName { get; set; } = "employers";
+
+    public string JobApplicationsCollectionName { get; set; } = "jobApplications";
 }

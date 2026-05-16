@@ -21,6 +21,9 @@ public class JobPosting
     [Required(ErrorMessage = "The job location is required.")]
     public string Location { get; set; } = string.Empty;
 
+    // Employer account that created this posting.
+    public string EmployerId { get; set; } = string.Empty;
+
     // UTC timestamp for when the job posting is created; defaults to the current UTC time.
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 

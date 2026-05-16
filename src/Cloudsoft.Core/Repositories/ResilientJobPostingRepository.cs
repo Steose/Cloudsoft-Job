@@ -62,6 +62,25 @@ public class ResilientJobPostingRepository : IJobPostingRepository
         }
     }
 
+    public async Task<IReadOnlyCollection<JobPosting>> GetByEmployerIdAsync(string employerId)
+    {
+        try
+        {
+            var jobPostings = await _mongoRepository.GetByEmployerIdAsync(employerId);
+            SyncCache(jobPostings);
+            return jobPostings;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "MongoDb job repository failed during {Operation}. Falling back to in-memory storage.",
+                nameof(GetByEmployerIdAsync));
+
+            return await _fallbackRepository.GetByEmployerIdAsync(employerId);
+        }
+    }
+
     public async Task<JobPosting?> GetByIdAsync(string id)
     {
         try
@@ -166,6 +185,7 @@ public class ResilientJobPostingRepository : IJobPostingRepository
             Title = jobPosting.Title,
             Description = jobPosting.Description,
             Location = jobPosting.Location,
+            EmployerId = jobPosting.EmployerId,
             CreatedAtUtc = jobPosting.CreatedAtUtc,
             Deadline = jobPosting.Deadline,
             IsActive = jobPosting.IsActive

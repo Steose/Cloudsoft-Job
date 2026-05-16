@@ -8,6 +8,8 @@ public interface IJobPostingRepository
 
     Task<IReadOnlyCollection<JobPosting>> GetActiveAsync();
 
+    Task<IReadOnlyCollection<JobPosting>> GetByEmployerIdAsync(string employerId);
+
     Task<JobPosting?> GetByIdAsync(string id);
 
     Task<JobPosting> AddAsync(JobPosting jobPosting);

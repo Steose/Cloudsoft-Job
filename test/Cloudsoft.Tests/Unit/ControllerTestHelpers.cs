@@ -30,6 +30,12 @@ internal sealed class FakeJobPostingService : IJobPostingService
         return Task.FromResult<IReadOnlyCollection<JobPosting>>(_jobs.Values.Where(job => job.IsActive).ToList());
     }
 
+    public Task<IReadOnlyCollection<JobPosting>> GetByEmployerIdAsync(string employerId)
+    {
+        return Task.FromResult<IReadOnlyCollection<JobPosting>>(
+            _jobs.Values.Where(job => job.EmployerId == employerId).ToList());
+    }
+
     public Task<JobPosting?> GetByIdAsync(string id)
     {
         return Task.FromResult(_jobs.TryGetValue(id, out var job) ? job : null);
@@ -67,6 +73,55 @@ internal sealed class FakeJobPostingService : IJobPostingService
 
         job.IsActive = !job.IsActive;
         return Task.FromResult(true);
+    }
+}
+
+internal sealed class FakeJobApplicationService : IJobApplicationService
+{
+    private readonly List<JobApplication> _applications = [];
+
+    public int SubmitCallCount { get; private set; }
+
+    public Task<IReadOnlyCollection<JobApplication>> GetAllAsync()
+    {
+        return Task.FromResult<IReadOnlyCollection<JobApplication>>(_applications.ToList());
+    }
+
+    public Task<IReadOnlyCollection<JobApplication>> GetByJobPostingIdAsync(string jobPostingId)
+    {
+        return Task.FromResult<IReadOnlyCollection<JobApplication>>(
+            _applications.Where(application => application.JobPostingId == jobPostingId).ToList());
+    }
+
+    public Task<JobApplication> SubmitAsync(
+        JobApplication application,
+        Stream cvStream,
+        string originalFileName,
+        CancellationToken cancellationToken = default)
+    {
+        SubmitCallCount++;
+        application.CvFileName = originalFileName;
+        _applications.Add(application);
+        return Task.FromResult(application);
+    }
+}
+
+internal sealed class FakeCountryLookupService : ICountryLookupService
+{
+    private static readonly IReadOnlyList<CountryItem> Countries =
+    [
+        new("SE", "Sweden"),
+        new("US", "United States")
+    ];
+
+    public Task<IReadOnlyList<CountryItem>> GetCountriesAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(Countries);
+    }
+
+    public bool IsKnownCountryCode(string countryCode)
+    {
+        return Countries.Any(country => country.Code.Equals(countryCode, StringComparison.OrdinalIgnoreCase));
     }
 }
 

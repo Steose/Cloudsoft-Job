@@ -76,6 +76,7 @@ public class ApiJobsControllerTests
             Title = "Platform Engineer",
             Description = "Run platform services",
             Location = "Remote",
+            EmployerId = "employer-1",
             CreatedAtUtc = DateTime.UtcNow,
             Deadline = DateTime.UtcNow.AddDays(21),
             IsActive = isActive

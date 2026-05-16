@@ -73,6 +73,7 @@ public class JobPostingServiceTests
             Title = "Developer",
             Description = "Build software",
             Location = "Malmo",
+            EmployerId = "employer-1",
             CreatedAtUtc = DateTime.UtcNow,
             Deadline = DateTime.UtcNow.AddDays(20),
             IsActive = isActive

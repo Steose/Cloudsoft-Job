@@ -8,4 +8,6 @@ public interface IInMemoryDatabase
     ConcurrentDictionary<string, JobPosting> JobPostings { get; }
 
     ConcurrentDictionary<string, EmployerAccount> Employers { get; }
+
+    ConcurrentDictionary<string, JobApplication> JobApplications { get; }
 }

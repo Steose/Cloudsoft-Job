@@ -34,6 +34,17 @@ public class JobPostingRepository : IJobPostingRepository
         return Task.FromResult(jobPostings);
     }
 
+    public Task<IReadOnlyCollection<JobPosting>> GetByEmployerIdAsync(string employerId)
+    {
+        IReadOnlyCollection<JobPosting> jobPostings = _database.JobPostings.Values
+            .Where(jobPosting => jobPosting.EmployerId == employerId)
+            .OrderByDescending(jobPosting => jobPosting.CreatedAtUtc)
+            .Select(Clone)
+            .ToList();
+
+        return Task.FromResult(jobPostings);
+    }
+
     public Task<JobPosting?> GetByIdAsync(string id)
     {
         if (string.IsNullOrWhiteSpace(id))
@@ -95,6 +106,7 @@ public class JobPostingRepository : IJobPostingRepository
             Title = jobPosting.Title,
             Description = jobPosting.Description,
             Location = jobPosting.Location,
+            EmployerId = jobPosting.EmployerId,
             CreatedAtUtc = jobPosting.CreatedAtUtc,
             Deadline = jobPosting.Deadline,
             IsActive = jobPosting.IsActive

@@ -67,10 +67,13 @@ if (featureFlags.UseMongoDb && !useMongoDb)
 if (useMongoDb)
 {
     builder.Services.AddScoped<MongoJobPostingRepository>();
+    builder.Services.AddScoped<MongoJobApplicationRepository>();
     builder.Services.AddScoped<MongoEmployerRepository>();
     builder.Services.AddScoped<JobPostingRepository>();
+    builder.Services.AddScoped<JobApplicationRepository>();
     builder.Services.AddScoped<EmployerRepository>();
     builder.Services.AddScoped<IJobPostingRepository, ResilientJobPostingRepository>();
+    builder.Services.AddScoped<IJobApplicationRepository, ResilientJobApplicationRepository>();
     builder.Services.AddScoped<IEmployerRepository, ResilientEmployerRepository>();
 
     Console.WriteLine("Using MongoDB repository");
@@ -79,6 +82,7 @@ if (useMongoDb)
 else
 {
     builder.Services.AddScoped<IJobPostingRepository, JobPostingRepository>();
+    builder.Services.AddScoped<IJobApplicationRepository, JobApplicationRepository>();
     builder.Services.AddScoped<IEmployerRepository, EmployerRepository>();
 
     Console.WriteLine("Using in-memory repository");
@@ -86,6 +90,8 @@ else
 }
 
 builder.Services.AddScoped<IJobPostingService, JobPostingService>();
+builder.Services.AddScoped<IJobApplicationService, JobApplicationService>();
+builder.Services.AddSingleton<ICountryLookupService, CountryLookupService>();
 builder.Services.AddScoped<IEmployerAuthenticationService, EmployerAuthenticationService>();
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -103,12 +109,14 @@ if (useAzureStorage)
 {
     // Register Azure Blob Storage image service for production
     builder.Services.AddSingleton<IImageService, AzureBlobImageService>();
+    builder.Services.AddSingleton<ICvStorageService, LocalCvStorageService>();
     Console.WriteLine("Using Azure Blob Storage for images");
 }
 else
 {
     // Register local image service for development
     builder.Services.AddSingleton<IImageService, LocalImageService>();
+    builder.Services.AddSingleton<ICvStorageService, LocalCvStorageService>();
     Console.WriteLine("Using local storage for images");
 }
 // Check if Azure Key Vault should be used
@@ -210,7 +218,8 @@ static bool HasValidMongoConfiguration(ConfigurationManager configuration)
     return !string.IsNullOrWhiteSpace(options.ConnectionString)
         && !string.IsNullOrWhiteSpace(options.DatabaseName)
         && !string.IsNullOrWhiteSpace(options.JobPostingsCollectionName)
-        && !string.IsNullOrWhiteSpace(options.EmployersCollectionName);
+        && !string.IsNullOrWhiteSpace(options.EmployersCollectionName)
+        && !string.IsNullOrWhiteSpace(options.JobApplicationsCollectionName);
 }
 
 static string ResolveContentRoot()

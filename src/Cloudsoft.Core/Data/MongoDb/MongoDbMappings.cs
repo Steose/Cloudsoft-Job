@@ -20,6 +20,7 @@ internal static class MongoDbMappings
             RegisterClassMap<EmployerAccount>();
             RegisterClassMap<EmployerUser>();
             RegisterClassMap<JobPosting>();
+            RegisterClassMap<JobApplication>();
 
             _registered = true;
         }

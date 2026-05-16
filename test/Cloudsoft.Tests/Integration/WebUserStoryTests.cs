@@ -193,6 +193,7 @@ public class WebUserStoryTests
             Title = "Cloud Support Engineer",
             Description = "Help customers run production systems",
             Location = "Gothenburg",
+            EmployerId = "cloudsoft-employer",
             CreatedAtUtc = DateTime.UtcNow,
             Deadline = DateTime.UtcNow.AddDays(25),
             IsActive = true

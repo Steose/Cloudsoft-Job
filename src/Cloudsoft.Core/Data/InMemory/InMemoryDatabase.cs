@@ -26,6 +26,8 @@ public class InMemoryDatabase : IInMemoryDatabase
 
     public ConcurrentDictionary<string, EmployerAccount> Employers { get; } = new();
 
+    public ConcurrentDictionary<string, JobApplication> JobApplications { get; } = new();
+
     private static string NormalizeEmail(string email)
     {
         return email.Trim().ToUpperInvariant();
