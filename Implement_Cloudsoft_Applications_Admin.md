@@ -68,5 +68,3 @@ Add candidate job applications and an authenticated admin dashboard using the cu
 - `src/Cloudsoft.Core/Options/MongoDbOptions.cs`
 - `test/Cloudsoft.Tests/Unit/ControllerTestHelpers.cs`
 - `test/Cloudsoft.Tests/Unit/WebJobsControllerTests.cs`
-
-

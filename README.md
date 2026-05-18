@@ -218,7 +218,6 @@ You need:
 - Permission to create Azure resources.
 - SSH private key matching the public key in `infra/vm-deploy/main.bicepparam`.
 - .NET SDK 10 installed locally.
-- Python 3 available locally.
 
 By default, the script expects:
 
@@ -601,4 +600,3 @@ More documentation is available in:
 - `docs/azure-storage-images.md`
 - `infra/vm-deploy/README.md`
 - `test/README.md`
-
