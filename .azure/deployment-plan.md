@@ -37,7 +37,7 @@ Implement repository-ready Azure Container Apps deployment support for the exist
 - `az bicep build --file infra/container-apps/main.bicep`
 - `dotnet test Cloudsoft.sln`
 
-## Pending Decisions
+## ToDo [CC-15] Configure and link this App, Repo and Jira board
 
 - Azure subscription ID, tenant ID, and resource group names must be supplied as GitHub repository variables/secrets.
 - Production MongoDB and API key secrets must be supplied through GitHub secrets or Key Vault.
