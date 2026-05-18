@@ -69,6 +69,4 @@ Add candidate job applications and an authenticated admin dashboard using the cu
 - `test/Cloudsoft.Tests/Unit/ControllerTestHelpers.cs`
 - `test/Cloudsoft.Tests/Unit/WebJobsControllerTests.cs`
 
-### Notes
 
-The implementation follows the existing Cloudsoft-Job patterns instead of the template namespace names. The template's `IApplicationService`, `IJobService`, and domain entities are mapped to this codebase as `IJobApplicationService`, `IJobPostingService`, and `Cloudsoft.Core.Models`.
