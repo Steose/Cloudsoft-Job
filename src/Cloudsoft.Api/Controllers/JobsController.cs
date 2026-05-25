@@ -1,4 +1,4 @@
-using Cloudsoft.Core.Models;
+using Cloudsoft.Api.Dtos;
 using Cloudsoft.Core.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,29 +17,36 @@ public class JobsController : ControllerBase
     }
 
     [HttpGet]
-    public Task<IReadOnlyCollection<JobPosting>> GetAll()
+    public async Task<IReadOnlyCollection<JobPostingDto>> GetAll()
     {
-        return _jobPostingService.GetAllAsync();
+        var jobs = await _jobPostingService.GetAllAsync();
+        return jobs.Select(job => job.ToDto()).ToList();
     }
 
     [HttpGet("active")]
-    public Task<IReadOnlyCollection<JobPosting>> GetActive()
+    public async Task<IReadOnlyCollection<JobPostingDto>> GetActive()
     {
-        return _jobPostingService.GetActiveAsync();
+        var jobs = await _jobPostingService.GetActiveAsync();
+        return jobs.Select(job => job.ToDto()).ToList();
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<JobPosting>> GetById(string id)
+    public async Task<ActionResult<JobPostingDto>> GetById(string id)
     {
         var jobPosting = await _jobPostingService.GetByIdAsync(id);
-        return jobPosting is null ? NotFound() : Ok(jobPosting);
+        return jobPosting is null ? NotFound() : Ok(jobPosting.ToDto());
     }
 
     [HttpPost]
     [Authorize]
-    public async Task<ActionResult<JobPosting>> Create(JobPosting jobPosting)
+    public async Task<ActionResult<JobPostingDto>> Create(CreateJobPostingDto dto)
     {
+        var jobPosting = dto.ToModel();
         var createdJobPosting = await _jobPostingService.CreateAsync(jobPosting);
-        return CreatedAtAction(nameof(GetById), new { id = createdJobPosting.Id }, createdJobPosting);
+
+        return CreatedAtAction(
+            nameof(GetById),
+            new { id = createdJobPosting.Id },
+            createdJobPosting.ToDto());
     }
 }

@@ -25,6 +25,35 @@ var featureFlags = builder.Configuration
 
 builder.Services.AddSingleton<IInMemoryDatabase, InMemoryDatabase>();
 
+// OpenAPI / Swagger surface.
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("ApiKey", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Description = "API key needed to access protected endpoints. Use: X-API-Key: <key>",
+        Name = "X-API-Key",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        Scheme = "ApiKey"
+    });
+
+    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "ApiKey"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
 var useMongoDb = featureFlags.UseMongoDb && HasValidMongoConfiguration(builder.Configuration);
 if (featureFlags.UseMongoDb && !useMongoDb)
 {
@@ -61,6 +90,11 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseHsts();
 }
+
+// Swagger is enabled in BOTH Development AND Production for this course.
+// See the Concept Deep Dive below for the trade-off.
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 app.UseAuthentication();

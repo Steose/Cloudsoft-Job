@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
-using Cloudsoft.Core.Models;
+using Cloudsoft.Api.Dtos;
 
 namespace Cloudsoft.Tests.Integration;
 
@@ -14,11 +14,13 @@ public class ApiJobEndpointTests
         var job = CreateJob("api-all");
 
         var createResponse = await PostJobAsync(client, job);
-        var jobs = await client.GetFromJsonAsync<List<JobPosting>>("/api/jobs");
+        var created = await createResponse.Content.ReadFromJsonAsync<JobPostingDto>();
+        var jobs = await client.GetFromJsonAsync<List<JobPostingDto>>("/api/jobs");
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        Assert.NotNull(created);
         Assert.NotNull(jobs);
-        Assert.Contains(jobs, item => item.Id == job.Id);
+        Assert.Contains(jobs, item => item.Id == created.Id);
     }
 
     [Fact]
@@ -30,12 +32,14 @@ public class ApiJobEndpointTests
         var inactive = CreateJob("api-inactive", isActive: false);
 
         await PostJobAsync(client, active);
-        await PostJobAsync(client, inactive);
-        var jobs = await client.GetFromJsonAsync<List<JobPosting>>("/api/jobs/active");
+        var inactiveResponse = await PostJobAsync(client, inactive);
+        var createdInactive = await inactiveResponse.Content.ReadFromJsonAsync<JobPostingDto>();
+        var jobs = await client.GetFromJsonAsync<List<JobPostingDto>>("/api/jobs/active");
 
         Assert.NotNull(jobs);
-        Assert.Contains(jobs, item => item.Id == active.Id);
-        Assert.DoesNotContain(jobs, item => item.Id == inactive.Id);
+        Assert.Contains(jobs, item => item.Title == active.Title);
+        Assert.NotNull(createdInactive);
+        Assert.DoesNotContain(jobs, item => item.Id == createdInactive.Id);
     }
 
     [Fact]
@@ -45,8 +49,11 @@ public class ApiJobEndpointTests
         var client = factory.CreateClient();
         var job = CreateJob("api-details");
 
-        await PostJobAsync(client, job);
-        var found = await client.GetFromJsonAsync<JobPosting>($"/api/jobs/{job.Id}");
+        var createResponse = await PostJobAsync(client, job);
+        var created = await createResponse.Content.ReadFromJsonAsync<JobPostingDto>();
+        Assert.NotNull(created);
+
+        var found = await client.GetFromJsonAsync<JobPostingDto>($"/api/jobs/{created.Id}");
 
         Assert.NotNull(found);
         Assert.Equal(job.Title, found.Title);
@@ -74,13 +81,13 @@ public class ApiJobEndpointTests
         var job = CreateJob("api-created");
 
         var response = await PostJobAsync(client, job);
-        var created = await response.Content.ReadFromJsonAsync<JobPosting>();
+        var created = await response.Content.ReadFromJsonAsync<JobPostingDto>();
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Assert.NotNull(response.Headers.Location);
-        Assert.Contains($"/api/jobs/{job.Id}", response.Headers.Location.ToString());
         Assert.NotNull(created);
-        Assert.Equal(job.Id, created.Id);
+        Assert.Contains($"/api/jobs/{created.Id}", response.Headers.Location.ToString());
+        Assert.Equal(job.Title, created.Title);
     }
 
     [Fact]
@@ -108,21 +115,19 @@ public class ApiJobEndpointTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    private static JobPosting CreateJob(string id, bool isActive = true)
+    private static CreateJobPostingDto CreateJob(string id, bool isActive = true)
     {
-        return new JobPosting
+        return new CreateJobPostingDto
         {
-            Id = $"{id}-{Guid.NewGuid():N}",
-            Title = "Integration Developer",
+            Title = $"Integration Developer {id}",
             Description = "Build and verify services",
             Location = "Stockholm",
-            CreatedAtUtc = DateTime.UtcNow,
             Deadline = DateTime.UtcNow.AddDays(30),
             IsActive = isActive
         };
     }
 
-    private static async Task<HttpResponseMessage> PostJobAsync(HttpClient client, JobPosting job)
+    private static async Task<HttpResponseMessage> PostJobAsync(HttpClient client, CreateJobPostingDto job)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/jobs")
         {

@@ -1,4 +1,5 @@
 using Cloudsoft.Api.Controllers;
+using Cloudsoft.Api.Dtos;
 using Cloudsoft.Core.Models;
 using Microsoft.AspNetCore.Mvc;
 
@@ -40,7 +41,7 @@ public class ApiJobsControllerTests
         var result = await controller.GetById(job.Id);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
-        var model = Assert.IsType<JobPosting>(ok.Value);
+        var model = Assert.IsType<JobPostingDto>(ok.Value);
         Assert.Equal(job.Id, model.Id);
     }
 
@@ -58,14 +59,26 @@ public class ApiJobsControllerTests
     public async Task Create_ReturnsCreatedResponse()
     {
         var job = CreateJob("job-1", true);
+        var dto = new CreateJobPostingDto
+        {
+            Title = job.Title,
+            Description = job.Description,
+            Location = job.Location,
+            Deadline = job.Deadline,
+            IsActive = job.IsActive
+        };
         var controller = new JobsController(new FakeJobPostingService());
 
-        var result = await controller.Create(job);
+        var result = await controller.Create(dto);
 
         var created = Assert.IsType<CreatedAtActionResult>(result.Result);
         Assert.Equal(nameof(JobsController.GetById), created.ActionName);
-        var model = Assert.IsType<JobPosting>(created.Value);
-        Assert.Equal(job.Id, model.Id);
+        var model = Assert.IsType<JobPostingDto>(created.Value);
+        Assert.Equal(job.Title, model.Title);
+        Assert.Equal(job.Description, model.Description);
+        Assert.Equal(job.Location, model.Location);
+        Assert.Equal(job.Deadline, model.Deadline);
+        Assert.Equal(job.IsActive, model.IsActive);
     }
 
     private static JobPosting CreateJob(string id, bool isActive)
