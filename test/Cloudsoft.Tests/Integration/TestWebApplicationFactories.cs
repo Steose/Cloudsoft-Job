@@ -50,9 +50,12 @@ internal sealed class CloudsoftApiFactory : WebApplicationFactory<ApiAssemblyMar
 
     private static Dictionary<string, string> ToEnvironmentVariables(Dictionary<string, string?> configuration)
     {
-        return configuration
+        var environmentVariables = configuration
             .Where(item => item.Value != null)
             .ToDictionary(item => item.Key.Replace(':', '_').Replace("_", "__"), item => item.Value!);
+
+        environmentVariables["ASPNETCORE_ENVIRONMENT"] = "Development";
+        return environmentVariables;
     }
 }
 
@@ -99,8 +102,11 @@ internal sealed class CloudsoftWebFactory : WebApplicationFactory<WebAssemblyMar
 
     private static Dictionary<string, string> ToEnvironmentVariables(Dictionary<string, string?> configuration)
     {
-        return configuration
+        var environmentVariables = configuration
             .Where(item => item.Value != null)
             .ToDictionary(item => item.Key.Replace(':', '_').Replace("_", "__"), item => item.Value!);
+
+        environmentVariables["ASPNETCORE_ENVIRONMENT"] = "Development";
+        return environmentVariables;
     }
 }
