@@ -12,15 +12,18 @@ public class JobsController : Controller
     private readonly IJobPostingService _jobPostingService;
     private readonly IJobApplicationService _jobApplicationService;
     private readonly ICountryLookupService _countryLookupService;
+    private readonly ILogger<JobsController> _logger;
 
     public JobsController(
         IJobPostingService jobPostingService,
         IJobApplicationService jobApplicationService,
-        ICountryLookupService countryLookupService)
+        ICountryLookupService countryLookupService,
+        ILogger<JobsController> logger)
     {
         _jobPostingService = jobPostingService;
         _jobApplicationService = jobApplicationService;
         _countryLookupService = countryLookupService;
+        _logger = logger;
     }
 
     [HttpGet("")]
@@ -106,14 +109,22 @@ public class JobsController : Controller
         var jobPosting = await _jobPostingService.GetByIdAsync(id);
         if (jobPosting == null)
         {
+            _logger.LogWarning("Job status update failed because the job was not found. JobPostingId: {JobPostingId}", id);
             return NotFound();
         }
 
         var willBeActive = !jobPosting.IsActive;
         if (!await _jobPostingService.ToggleIsActiveAsync(id))
         {
+            _logger.LogWarning("Job status update failed during persistence. JobPostingId: {JobPostingId}", id);
             return NotFound();
         }
+
+        _logger.LogInformation(
+            "Job status updated. JobPostingId: {JobPostingId}, EmployerId: {EmployerId}, IsActive: {IsActive}",
+            jobPosting.Id,
+            jobPosting.EmployerId,
+            willBeActive);
 
         TempData["SuccessMessage"] = willBeActive
             ? $"Job '{jobPosting.Title}' is now active."
@@ -146,11 +157,23 @@ public class JobsController : Controller
 
         if (!ModelState.IsValid)
         {
+            _logger.LogWarning(
+                "Job creation rejected because the submitted model is invalid. ValidationErrorCount: {ValidationErrorCount}",
+                ModelState.ErrorCount);
+
             return View("JobPosting", jobPosting);
         }
 
         jobPosting.EmployerId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
-        await _jobPostingService.CreateAsync(jobPosting);
+        var createdJobPosting = await _jobPostingService.CreateAsync(jobPosting);
+
+        _logger.LogInformation(
+            "Job created. JobPostingId: {JobPostingId}, EmployerId: {EmployerId}, DeadlineDate: {DeadlineDate}, IsActive: {IsActive}",
+            createdJobPosting.Id,
+            createdJobPosting.EmployerId,
+            createdJobPosting.Deadline.Date,
+            createdJobPosting.IsActive);
+
         TempData["SuccessMessage"] = $"Thank you for posting the {jobPosting.Title} job!";
 
         return RedirectToAction(nameof(Index));

@@ -21,6 +21,9 @@ param managedIdentityName string = '${prefix}-aca-pull'
 @description('Log Analytics workspace name.')
 param logAnalyticsWorkspaceName string = '${prefix}-logs'
 
+@description('Application Insights resource name.')
+param applicationInsightsName string = '${prefix}-appi'
+
 @description('Container image repository name inside ACR.')
 param imageRepository string = 'cloudsoft-job'
 
@@ -124,6 +127,16 @@ resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
       name: 'PerGB2018'
     }
     retentionInDays: 30
+  }
+}
+
+resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
+  name: applicationInsightsName
+  location: location
+  kind: 'web'
+  properties: {
+    Application_Type: 'web'
+    WorkspaceResourceId: logs.id
   }
 }
 
@@ -252,6 +265,10 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'mongodb-connection-string'
           value: effectiveMongoDbConnectionString
         }
+        {
+          name: 'appinsights-connection-string'
+          value: appInsights.properties.ConnectionString
+        }
       ]
     }
     template: {
@@ -305,6 +322,10 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'MongoDb__ConnectionString'
               secretRef: 'mongodb-connection-string'
             }
+            {
+              name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+              secretRef: 'appinsights-connection-string'
+            }
           ])
           resources: {
             cpu: json(cpu)
@@ -330,6 +351,8 @@ output containerAppName string = containerApp.name
 output containerAppFqdn string = containerApp.properties.configuration.ingress.fqdn
 output containerAppUrl string = 'https://${containerApp.properties.configuration.ingress.fqdn}'
 output managedEnvironmentName string = environment.name
+output applicationInsightsName string = appInsights.name
+output applicationInsightsConnectionString string = appInsights.properties.ConnectionString
 output cosmosAccountName string = cosmosAccount.name
 output cosmosMongoDbName string = cosmosMongoDb.name
 output cosmosEndpoint string = cosmosAccount.properties.documentEndpoint

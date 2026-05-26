@@ -1,6 +1,7 @@
 using Cloudsoft.Core.Models;
 using Cloudsoft.Web.Controllers;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Cloudsoft.Tests.Unit;
 
@@ -133,6 +134,7 @@ public class WebJobsControllerTests
         return new JobsController(
             jobPostingService,
             new FakeJobApplicationService(),
-            new FakeCountryLookupService());
+            new FakeCountryLookupService(),
+            NullLogger<JobsController>.Instance);
     }
 }

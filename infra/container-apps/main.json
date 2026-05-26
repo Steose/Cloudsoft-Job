@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.42.1.51946",
-      "templateHash": "7538264863681841642"
+      "templateHash": "7796215936021705427"
     }
   },
   "parameters": {
@@ -56,6 +56,13 @@
       "defaultValue": "[format('{0}-logs', parameters('prefix'))]",
       "metadata": {
         "description": "Log Analytics workspace name."
+      }
+    },
+    "applicationInsightsName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-appi', parameters('prefix'))]",
+      "metadata": {
+        "description": "Application Insights resource name."
       }
     },
     "imageRepository": {
@@ -245,6 +252,20 @@
       }
     },
     {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[parameters('applicationInsightsName')]",
+      "location": "[parameters('location')]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "web",
+        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+      ]
+    },
+    {
       "type": "Microsoft.DocumentDB/databaseAccounts",
       "apiVersion": "2025-04-15",
       "name": "[parameters('cosmosAccountName')]",
@@ -388,6 +409,10 @@
             {
               "name": "mongodb-connection-string",
               "value": "[if(not(empty(parameters('mongoDbConnectionString'))), parameters('mongoDbConnectionString'), format('mongodb://{0}:{1}@{2}.mongo.cosmos.azure.com:10255/{3}?ssl=true&replicaSet=globaldb&retrywrites=false&maxIdleTimeMS=120000&authMechanism=SCRAM-SHA-256&appName=@{4}@', parameters('cosmosAccountName'), uriComponent(listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')), '2025-04-15').primaryMasterKey), parameters('cosmosAccountName'), parameters('mongoDbDatabaseName'), parameters('cosmosAccountName')))]"
+            },
+            {
+              "name": "appinsights-connection-string",
+              "value": "[reference(resourceId('Microsoft.Insights/components', parameters('applicationInsightsName')), '2020-02-02').ConnectionString]"
             }
           ]
         },
@@ -396,7 +421,7 @@
             {
               "name": "cloudsoft-web",
               "image": "[format('{0}/{1}:{2}', reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-11-01-preview').loginServer, parameters('imageRepository'), parameters('imageTag'))]",
-              "env": "[concat(createArray(createObject('name', 'ASPNETCORE_URLS', 'value', format('http://+:{0}', parameters('containerPort'))), createObject('name', 'ASPNETCORE_ENVIRONMENT', 'value', 'Production'), createObject('name', 'FeatureFlags__UseMongoDb', 'value', string(parameters('useMongoDb'))), createObject('name', 'FeatureFlags__UseAzureKeyVault', 'value', string(parameters('useAzureKeyVault'))), createObject('name', 'FeatureFlags__UseAzureStorage', 'value', string(parameters('useAzureStorage'))), createObject('name', 'MongoDb__DatabaseName', 'value', parameters('mongoDbDatabaseName')), createObject('name', 'MongoDb__JobPostingsCollectionName', 'value', parameters('mongoDbJobPostingsCollectionName')), createObject('name', 'MongoDb__EmployersCollectionName', 'value', parameters('mongoDbEmployersCollectionName')), createObject('name', 'KeyVault__VaultUri', 'value', parameters('keyVaultUri')), createObject('name', 'AzureBlob__ContainerUrl', 'value', variables('effectiveAzureBlobContainerUrl'))), createArray(createObject('name', 'MongoDb__ConnectionString', 'secretRef', 'mongodb-connection-string')))]",
+              "env": "[concat(createArray(createObject('name', 'ASPNETCORE_URLS', 'value', format('http://+:{0}', parameters('containerPort'))), createObject('name', 'ASPNETCORE_ENVIRONMENT', 'value', 'Production'), createObject('name', 'FeatureFlags__UseMongoDb', 'value', string(parameters('useMongoDb'))), createObject('name', 'FeatureFlags__UseAzureKeyVault', 'value', string(parameters('useAzureKeyVault'))), createObject('name', 'FeatureFlags__UseAzureStorage', 'value', string(parameters('useAzureStorage'))), createObject('name', 'MongoDb__DatabaseName', 'value', parameters('mongoDbDatabaseName')), createObject('name', 'MongoDb__JobPostingsCollectionName', 'value', parameters('mongoDbJobPostingsCollectionName')), createObject('name', 'MongoDb__EmployersCollectionName', 'value', parameters('mongoDbEmployersCollectionName')), createObject('name', 'KeyVault__VaultUri', 'value', parameters('keyVaultUri')), createObject('name', 'AzureBlob__ContainerUrl', 'value', variables('effectiveAzureBlobContainerUrl'))), createArray(createObject('name', 'MongoDb__ConnectionString', 'secretRef', 'mongodb-connection-string'), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'secretRef', 'appinsights-connection-string')))]",
               "resources": {
                 "cpu": "[json(parameters('cpu'))]",
                 "memory": "[parameters('memory')]"
@@ -412,6 +437,7 @@
       "dependsOn": [
         "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
         "[extensionResourceId(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName')), variables('acrPullRoleDefinitionId')))]",
+        "[resourceId('Microsoft.Insights/components', parameters('applicationInsightsName'))]",
         "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName'))]",
         "[resourceId('Microsoft.DocumentDB/databaseAccounts/mongodbDatabases', parameters('cosmosAccountName'), parameters('mongoDbDatabaseName'))]",
         "[resourceId('Microsoft.App/managedEnvironments', parameters('containerAppsEnvironmentName'))]",
@@ -444,6 +470,14 @@
     "managedEnvironmentName": {
       "type": "string",
       "value": "[parameters('containerAppsEnvironmentName')]"
+    },
+    "applicationInsightsName": {
+      "type": "string",
+      "value": "[parameters('applicationInsightsName')]"
+    },
+    "applicationInsightsConnectionString": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Insights/components', parameters('applicationInsightsName')), '2020-02-02').ConnectionString]"
     },
     "cosmosAccountName": {
       "type": "string",

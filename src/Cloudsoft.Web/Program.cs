@@ -9,6 +9,7 @@ using Cloudsoft.Core.Repositories.Interfaces;
 using Cloudsoft.Core.Storage;
 using Cloudsoft.Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 
 var builder = WebApplication.CreateEmptyBuilder(new WebApplicationOptions
 {
@@ -34,6 +35,7 @@ if (args.Length > 0)
     builder.Configuration.AddCommandLine(args);
 }
 
+builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
 builder.Logging.AddConsole();
 builder.WebHost.UseKestrel();
 
@@ -47,6 +49,16 @@ if (!string.IsNullOrWhiteSpace(configuredUrls))
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+var applicationInsightsConnectionString = builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
+if (!string.IsNullOrWhiteSpace(applicationInsightsConnectionString))
+{
+    builder.Services.AddOpenTelemetry().UseAzureMonitor();
+}
+else if (!builder.Environment.IsDevelopment())
+{
+    throw new InvalidOperationException("APPLICATIONINSIGHTS_CONNECTION_STRING must be configured outside Development.");
+}
+
 builder.Services.Configure<MongoDbOptions>(builder.Configuration.GetSection(MongoDbOptions.SectionName));
 builder.Services.Configure<FeatureFlagsOptions>(builder.Configuration.GetSection(FeatureFlagsOptions.SectionName));
 builder.Services.Configure<AzureBlobOptions>(builder.Configuration.GetSection(AzureBlobOptions.SectionName));
@@ -170,44 +182,6 @@ app.MapControllerRoute(
 
 
 app.Run();
-
-//  static void ConfigureKeyVault(WebApplicationBuilder builder)
-//  {
-    //  var featureFlags = builder.Configuration
-        //  .GetSection(FeatureFlagsOptions.SectionName)
-        //  .Get<FeatureFlagsOptions>() ?? new FeatureFlagsOptions();
-//  
-    //  if (!featureFlags.UseAzureKeyVault)
-    //  {
-        //  return;
-    //  }
-//  
-    //  var keyVaultOptions = builder.Configuration
-        //  .GetSection(AzureKeyVaultOptions.SectionName)
-        //  .Get<KeyVaultOptions>() ?? new KeyVaultOptions();
-//  
-    //  if (string.IsNullOrWhiteSpace(keyVaultOptions.VaultUri))
-    //  {
-        //  Console.WriteLine("Azure Key Vault is enabled by flag but KeyVault:VaultUri is missing. Continuing without Key Vault.");
-        //  return;
-    //  }
-//  
-    //  try
-    //  {
-        //  builder.Configuration.AddAzureKeyVault(
-            //  new Uri(keyVaultOptions.VaultUri),
-            //  new DefaultAzureCredential(new DefaultAzureCredentialOptions
-            //  {
-                //  ManagedIdentityClientId = string.IsNullOrWhiteSpace(keyVaultOptions.ManagedIdentityClientId)
-                    //  ? null
-                    //  : keyVaultOptions.ManagedIdentityClientId
-            //  }));
-    //  }
-    //  catch (Exception ex)
-    //  {
-        //  Console.WriteLine($"Failed to load configuration from Azure Key Vault. Continuing without Key Vault. {ex.Message}");
-    //  }
-//  }
 
 static bool HasValidMongoConfiguration(ConfigurationManager configuration)
 {

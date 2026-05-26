@@ -12,10 +12,14 @@ namespace Cloudsoft.Web.Controllers;
 public class AccountController : Controller
 {
     private readonly IEmployerAuthenticationService _employerAuthenticationService;
+    private readonly ILogger<AccountController> _logger;
 
-    public AccountController(IEmployerAuthenticationService employerAuthenticationService)
+    public AccountController(
+        IEmployerAuthenticationService employerAuthenticationService,
+        ILogger<AccountController> logger)
     {
         _employerAuthenticationService = employerAuthenticationService;
+        _logger = logger;
     }
 
     [HttpGet("Login")]
@@ -35,17 +39,24 @@ public class AccountController : Controller
     {
         if (!ModelState.IsValid)
         {
+            _logger.LogWarning(
+                "Employer login rejected because the submitted model is invalid. ValidationErrorCount: {ValidationErrorCount}",
+                ModelState.ErrorCount);
+
             return View(model);
         }
 
         var employer = await _employerAuthenticationService.ValidateCredentialsAsync(model.Email, model.Password);
         if (employer == null)
         {
+            _logger.LogWarning("Employer login failed. Reason: {Reason}", "InvalidCredentials");
+
             ModelState.AddModelError(string.Empty, "Invalid employer login.");
             return View(model);
         }
 
         await SignInEmployerAsync(employer);
+        _logger.LogInformation("Employer login succeeded. EmployerId: {EmployerId}", employer.Id);
 
         return RedirectToLocal(model.ReturnUrl);
     }
@@ -92,7 +103,10 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout()
     {
+        var employerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        _logger.LogInformation("Employer logged out. EmployerId: {EmployerId}", employerId);
+
         return RedirectToAction("Index", "Jobs");
     }
 
