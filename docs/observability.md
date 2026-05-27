@@ -488,6 +488,8 @@ Run the web app:
 dotnet run --project src/Cloudsoft.Web
 ```
 
+![Observability output](Images/observability.png)
+
 Exercise the flows:
 
 1. Open the login page.
