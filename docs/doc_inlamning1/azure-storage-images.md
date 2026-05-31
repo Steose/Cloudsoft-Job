@@ -22,7 +22,7 @@ The web app can use this container for public image files such as `hero.png`.
 AzureBlob__ContainerUrl
 ```
 
-10. The app builds image URLs from that container URL.
+10.The app builds image URLs from that container URL.
 
 For example:
 

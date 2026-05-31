@@ -18,20 +18,20 @@ The image is built from `docker/Dockerfile`.
 az acr login --name "$ACR_NAME"
 ```
 
-4. Docker builds the image:
+4.Docker builds the image:
 
 ```bash
 docker build --file docker/Dockerfile .
 ```
 
-5. The workflow tags the image as:
+5.The workflow tags the image as:
 
 ```text
 <acr-login-server>/cloudsoft-job:<commit-sha>
 <acr-login-server>/cloudsoft-job:latest
 ```
 
-6. The workflow pushes both tags to ACR.
+6.The workflow pushes both tags to ACR.
 
 ## Main Files
 

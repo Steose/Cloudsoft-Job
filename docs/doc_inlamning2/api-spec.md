@@ -1,8 +1,12 @@
-# Cloudsoft API Spec
+# Cloudsoft REST API With MVC
 
 ## Overview
 
 The Cloudsoft API exposes job posting data from `Cloudsoft.Api`.
+
+The exposed resource is the job posting resource. This was chosen because job postings are the main public data in the Cloudsoft Job application: visitors need to browse available jobs, external clients may need to read active postings, and trusted clients may need to create new postings. A job posting is also a stable business concept with clear fields such as title, description, location, deadline, and active status.
+
+The API does not expose employer accounts, login state, applicant CV uploads, or internal storage details. Those parts either contain sensitive data or belong to browser workflows in the MVC web app. Keeping the API focused on job postings makes the contract smaller, easier to document, and safer to consume.
 
 The API uses DTOs as its public contract:
 
@@ -10,11 +14,52 @@ The API uses DTOs as its public contract:
 - `JobPostingDto` is returned from job endpoints.
 - `JobPosting` remains the internal domain model in `Cloudsoft.Core`.
 
-This keeps the public API contract separate from the internal domain model.
+This keeps the public API contract separate from the internal domain model. The domain entity can change to support internal business rules, persistence, or employer ownership without automatically changing the JSON shape that API consumers depend on.
 
 ## Swagger
 
-Swagger is enabled with `Swashbuckle.AspNetCore`.
+Swagger/OpenAPI documentation is generated with `Swashbuckle.AspNetCore`.
+
+The API registers controller discovery and Swagger generation in `src/Cloudsoft.Api/Program.cs`:
+
+```csharp
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("ApiKey", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Description = "API key needed to access protected endpoints. Use: X-API-Key: <key>",
+        Name = "X-API-Key",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        Scheme = "ApiKey"
+    });
+
+    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "ApiKey"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+```
+
+At runtime, the middleware exposes the generated OpenAPI JSON and Swagger UI:
+
+```csharp
+app.UseSwagger();
+app.UseSwaggerUI();
+```
+
+Swashbuckle reads the controller routes, HTTP attributes, action method signatures, DTO properties, validation attributes, and configured API-key security definition. That produces a browsable API page and a machine-readable OpenAPI document.
 
 Run the API:
 
@@ -25,13 +70,17 @@ dotnet run --project src/Cloudsoft.Api
 Open Swagger UI:
 
 ```text
-http://localhost:5155/swagger
+http://localhost:5155/swagger/index.html
 ```
 
 The HTTPS profile also exposes:
 
+```bash
+dotnet run --project src/Cloudsoft.Api --launch-profile https
+```
+
 ```text
-https://localhost:7036/swagger
+https://localhost:7036/swagger/index.html
 ```
 
 The OpenAPI JSON document is available at:
@@ -39,6 +88,8 @@ The OpenAPI JSON document is available at:
 ```text
 http://localhost:5155/swagger/v1/swagger.json
 ```
+
+A consumer finds the API by opening Swagger UI, reviewing the available operations under `api/jobs`, expanding an endpoint, and using **Try it out**. For public `GET` endpoints, no credentials are required. For protected write endpoints, the consumer clicks **Authorize**, enters the API key value, and then calls `POST /api/jobs` with a JSON request body.
 
 ## Authentication
 
@@ -50,13 +101,47 @@ Write endpoints require an API key in this header:
 X-API-Key: <configured-write-api-key>
 ```
 
-The key is configured with:
+The key is read by `ApiKeyAuthenticationHandler` from the `ApiAuth` configuration section:
 
 ```text
 ApiAuth__WriteApiKey=<secret-value>
 ```
 
-Do not commit production API keys to the repository.
+In code, the options object is registered in `Program.cs`:
+
+```csharp
+builder.Services.Configure<ApiAuthOptions>(builder.Configuration.GetSection(ApiAuthOptions.SectionName));
+```
+
+Authentication and authorization are enabled with:
+
+```csharp
+builder.Services
+    .AddAuthentication(ApiKeyAuthenticationDefaults.AuthenticationScheme)
+    .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(
+        ApiKeyAuthenticationDefaults.AuthenticationScheme,
+        options => { });
+builder.Services.AddAuthorization();
+```
+
+The request pipeline then runs the authentication and authorization middleware:
+
+```csharp
+app.UseAuthentication();
+app.UseAuthorization();
+```
+
+Only the create endpoint is protected:
+
+```csharp
+[HttpPost]
+[Authorize]
+public async Task<ActionResult<JobPostingDto>> Create(CreateJobPostingDto dto)
+```
+
+The handler checks the configured key, reads the `X-API-Key` request header, compares the header value with the configured value, and creates an authenticated `api-client` principal when they match.
+
+The production key should be stored outside source control, for example as an environment variable, Azure Container Apps secret, GitHub Actions secret, or Azure Key Vault secret. `src/Cloudsoft.Api/appsettings.json` keeps `ApiAuth:WriteApiKey` empty, so a real production key is not committed to the repository. Local development can use `appsettings.Development.json` or an environment variable, but production secrets should not be written into tracked files.
 
 Missing or invalid API keys return:
 
@@ -66,7 +151,7 @@ Missing or invalid API keys return:
 
 ### Configure API Key Locally
 
-For local development, configure the write API key with an environment variable:
+For local development, either use the development key from `src/Cloudsoft.Api/appsettings.Development.json` or override it with an environment variable:
 
 ```bash
 export ApiAuth__WriteApiKey="test-api-write-key"
@@ -114,55 +199,12 @@ Public `GET` endpoints do not need an API key. `POST /api/jobs` does need an API
 
 ### Swagger API Key Support
 
-Swagger UI can show an `Authorize` button for the API key if Swagger security is configured.
+Swagger UI includes an `Authorize` button because `Program.cs` configures an API-key security definition named `ApiKey`.
 
-In `Program.cs`, replace:
-
-```csharp
-builder.Services.AddSwaggerGen();
-```
-
-with:
-
-```csharp
-builder.Services.AddSwaggerGen(options =>
-{
-    options.AddSecurityDefinition("ApiKey", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-    {
-        Description = "API key needed to access protected endpoints. Use: X-API-Key: <key>",
-        Name = "X-API-Key",
-        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
-        Scheme = "ApiKey"
-    });
-
-    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
-    {
-        {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-            {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "ApiKey"
-                }
-            },
-            Array.Empty<string>()
-        }
-    });
-});
-```
-
-Optionally add this using at the top of `Program.cs` and shorten the type names:
-
-```csharp
-using Microsoft.OpenApi.Models;
-```
-
-After restarting the API, open Swagger:
+Open Swagger:
 
 ```text
-http://localhost:5155/swagger
+http://localhost:5155/swagger/index.html
 ```
 
 Click `Authorize` and enter only the key value:
@@ -174,6 +216,18 @@ test-api-write-key
 Do not enter `X-API-Key: test-api-write-key` in the Swagger authorize box.
 
 ## DTOs
+
+DTOs live in `src/Cloudsoft.Api/Dtos`. The domain entity lives separately in `src/Cloudsoft.Core/Models/JobPosting.cs`. The mapping code in `JobPostingDtoMapping` is the boundary between the API contract and the domain model:
+
+```csharp
+public static JobPostingDto ToDto(this JobPosting jobPosting)
+```
+
+```csharp
+public static JobPosting ToModel(this CreateJobPostingDto dto)
+```
+
+This separation matters because API consumers should not receive every internal field. For example, `CreateJobPostingDto` does not let the client send `id`, `createdAtUtc`, or `employerId`; those values are controlled by the server and the application workflow. `JobPostingDto` also avoids exposing internal persistence details or employer account data.
 
 ### CreateJobPostingDto
 
@@ -399,16 +453,11 @@ public async Task<ActionResult<JobPostingDto>> GetById(string id)
 public async Task<ActionResult<JobPostingDto>> Create(CreateJobPostingDto dto)
 ```
 
-## Verification
+The exposed resource and protection model are intentionally small:
 
-Run the tests:
+- `GET /api/jobs`, `GET /api/jobs/active`, and `GET /api/jobs/{id}` are public read operations.
+- `POST /api/jobs` is the only write operation and requires `X-API-Key`.
+- The API key is configured through `ApiAuth:WriteApiKey`.
+- Real production keys are kept out of version control by using environment variables or Azure-hosted secret storage.
 
-```bash
-dotnet test
-```
-
-Current verified result:
-
-```text
-Passed! - Failed: 0, Passed: 55, Skipped: 0, Total: 55
-```
+![Swagger output](../Images/swagger_screenshot.png)

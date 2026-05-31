@@ -24,7 +24,7 @@ The logs deliberately avoid personal data and secrets.
 
 Inject `ILogger<T>` into the controller where the flow happens.
 
-Example:
+Example code:
 
 ```csharp
 private readonly ILogger<JobsController> _logger;
@@ -107,9 +107,9 @@ _logger.LogInformation(
     willBeActive);
 ```
 
-## Step 4: Use Log Levels Consistently
+## Step 4: Used Log Levels
 
-Use these levels in this application:
+Used levels in this application:
 
 | Level | Use For | Example |
 | --- | --- | --- |
@@ -144,7 +144,7 @@ Without `AddConfiguration`, the `Logging` section in `appsettings.json` is loade
 
 ## Step 5: Do Not Log Sensitive Data
 
-Do not log:
+Did not log:
 
 - Passwords.
 - API keys.
@@ -168,7 +168,7 @@ Prefer safe identifiers:
 
 This gives enough diagnostic value without exposing personal data or secrets.
 
-## Step 6: Understand How Logs Reach Log Analytics
+## Step 6: How Logs Reach Log Analytics
 
 ### Current Path: Container Apps Console Logging
 
@@ -404,6 +404,8 @@ ContainerAppConsoleLogs_CL
 | order by TimeGenerated desc
 ```
 
+![KQL output](../Images/KQL_query_and_output1.png)
+
 ### Incident Query: Job Create Or Update Failures
 
 Use this when employers report that job creation or activation/deactivation is not working.
@@ -416,6 +418,8 @@ ContainerAppConsoleLogs_CL
 | project TimeGenerated, ContainerAppName_s, RevisionName_s, Log_s
 | order by TimeGenerated desc
 ```
+
+![KQL output](../Images/KQL_query_and_output2.png)
 
 ### Incident Query: Repository Fallback Or Unexpected Errors
 
@@ -431,21 +435,25 @@ ContainerAppConsoleLogs_CL
 | order by TimeGenerated desc
 ```
 
+![KQL output](../Images/KQL_query_and_output3.png)
+
 ### Application Insights Query: Slow Requests
 
-Use this after the Application Insights SDK is enabled.
+Query after the Application Insights SDK is enabled.
 
 ```kql
 requests
-| where timestamp > ago(1h)
+| where timestamp > ago(15h)
 | where cloud_RoleName has "cloudsoft"
 | summarize RequestCount = count(), AvgDuration = avg(duration), P95Duration = percentile(duration, 95) by name, bin(timestamp, 5m)
 | order by P95Duration desc
 ```
 
+![KQL output](../Images/KQL_query_and_output.png)
+
 ### Application Insights Query: Correlate One Failed Operation
 
-Use this after the Application Insights SDK is enabled and you have an `operation_Id`.
+Query after the Application Insights SDK is enabled with `operation_Id`.
 
 ```kql
 union requests, traces, exceptions, dependencies
@@ -488,8 +496,6 @@ Run the web app:
 dotnet run --project src/Cloudsoft.Web
 ```
 
-![Observability output](Images/observability.png)
-
 Exercise the flows:
 
 1. Open the login page.
@@ -499,14 +505,4 @@ Exercise the flows:
 5. Activate or deactivate a job posting.
 6. Watch the terminal output for structured log messages.
 
-Run the tests:
-
-```bash
-dotnet test
-```
-
-Expected result:
-
-```text
-Passed! - Failed: 0, Passed: 55, Skipped: 0, Total: 55
-```
+![Observability output](../Images/observability.png)
